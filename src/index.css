@@ -1,0 +1,245 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────
+   FONTS
+───────────────────────────────────────────────────────── */
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --color-brand:        #ea580c;
+  --color-brand-light:  #fed7aa;
+  --color-brand-dark:   #9a3412;
+  --sidebar-width:      280px;
+  --header-height:      57px;
+}
+
+.font-mono  { font-family: 'JetBrains Mono', monospace; }
+.font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
+
+/* ─────────────────────────────────────────────────────────
+   SCREEN TRANSITIONS  (directional slide)
+───────────────────────────────────────────────────────── */
+@keyframes screenSlideInFromRight {
+  from { transform: translateX(32%); opacity: 0; filter: blur(2px); }
+  to   { transform: translateX(0);   opacity: 1; filter: blur(0); }
+}
+@keyframes screenSlideInFromLeft {
+  from { transform: translateX(-32%); opacity: 0; filter: blur(2px); }
+  to   { transform: translateX(0);    opacity: 1; filter: blur(0); }
+}
+.screen-slide-left  { animation: screenSlideInFromRight 280ms cubic-bezier(0.22,1,0.36,1) both; }
+.screen-slide-right { animation: screenSlideInFromLeft  280ms cubic-bezier(0.22,1,0.36,1) both; }
+
+/* ─────────────────────────────────────────────────────────
+   SIDEBAR SLIDE
+───────────────────────────────────────────────────────── */
+@keyframes sidebarSlideIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes sidebarSlideOut {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+.sidebar-open  { animation: sidebarSlideIn  260ms cubic-bezier(0.22,1,0.36,1) forwards; }
+.sidebar-close { animation: sidebarSlideOut 220ms cubic-bezier(0.55,0,1,0.45) forwards; }
+
+@keyframes overlayFadeIn  { from { opacity:0; } to { opacity:1; } }
+@keyframes overlayFadeOut { from { opacity:1; } to { opacity:0; } }
+.overlay-in  { animation: overlayFadeIn  260ms ease forwards; }
+.overlay-out { animation: overlayFadeOut 220ms ease forwards; }
+
+/* ─────────────────────────────────────────────────────────
+   TOAST NOTIFICATIONS
+───────────────────────────────────────────────────────── */
+@keyframes toastSlideDown {
+  from { transform: translateY(-120%) scale(0.9); opacity: 0; }
+  to   { transform: translateY(0)      scale(1);   opacity: 1; }
+}
+@keyframes toastSlideUp {
+  from { transform: translateY(0)      scale(1);   opacity: 1; }
+  to   { transform: translateY(-120%) scale(0.9); opacity: 0; }
+}
+.toast-in  { animation: toastSlideDown 320ms cubic-bezier(0.22,1,0.36,1) forwards; }
+.toast-out { animation: toastSlideUp   200ms ease-in forwards; }
+
+/* ─────────────────────────────────────────────────────────
+   MICRO-ANIMATIONS
+───────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity:0; transform: translateY(16px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity:0; }
+  to   { opacity:1; }
+}
+@keyframes scaleIn {
+  from { opacity:0; transform: scale(0.88); }
+  to   { opacity:1; transform: scale(1); }
+}
+@keyframes bounceIn {
+  0%   { opacity:0; transform: scale(0.6); }
+  60%  { opacity:1; transform: scale(1.1); }
+  80%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes floatUp {
+  0%   { opacity:1; transform: translateY(0); }
+  100% { opacity:0; transform: translateY(-32px); }
+}
+@keyframes shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position:  600px 0; }
+}
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 0 rgba(234,88,12,0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(234,88,12,0); }
+  100% { box-shadow: 0 0 0 0 rgba(234,88,12,0); }
+}
+@keyframes numberTick {
+  from { transform: translateY(8px); opacity:0; }
+  to   { transform: translateY(0);   opacity:1; }
+}
+@keyframes badgeBounce {
+  0%,100% { transform: scale(1); }
+  30%     { transform: scale(1.35); }
+  60%     { transform: scale(0.9); }
+}
+@keyframes spinOnce {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes heartbeat {
+  0%,100% { transform: scale(1); }
+  14%     { transform: scale(1.18); }
+  28%     { transform: scale(1); }
+  42%     { transform: scale(1.12); }
+  70%     { transform: scale(1); }
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Utility animation classes */
+.animate-fade-in-up   { animation: fadeInUp   380ms cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in      { animation: fadeIn      260ms ease both; }
+.animate-scale-in     { animation: scaleIn     280ms cubic-bezier(0.22,1,0.36,1) both; }
+.animate-bounce-in    { animation: bounceIn    420ms cubic-bezier(0.22,1,0.36,1) both; }
+.animate-float-up     { animation: floatUp     600ms ease forwards; }
+.animate-number-tick  { animation: numberTick  260ms ease both; }
+.animate-badge-bounce { animation: badgeBounce 500ms ease; }
+.animate-pulse-ring   { animation: pulseRing   1.4s ease-out infinite; }
+.animate-heartbeat    { animation: heartbeat   1.4s ease-in-out infinite; }
+.animate-gradient     { background-size: 200% 200%; animation: gradientShift 3s ease infinite; }
+.animate-spin-once    { animation: spinOnce    600ms ease both; }
+
+/* Stagger children */
+.stagger-children > *:nth-child(1)  { animation-delay: 40ms; }
+.stagger-children > *:nth-child(2)  { animation-delay: 80ms; }
+.stagger-children > *:nth-child(3)  { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4)  { animation-delay: 160ms; }
+.stagger-children > *:nth-child(5)  { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6)  { animation-delay: 240ms; }
+.stagger-children > *:nth-child(7)  { animation-delay: 280ms; }
+.stagger-children > *:nth-child(8)  { animation-delay: 320ms; }
+.stagger-children > *:nth-child(9)  { animation-delay: 360ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 400ms; }
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ─────────────────────────────────────────────────────────
+   INTERACTIVE STATES
+───────────────────────────────────────────────────────── */
+.btn-press {
+  transition: transform 80ms ease, box-shadow 80ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-press:active  { transform: scale(0.94); }
+
+.card-lift {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0,0,0,0.12);
+}
+
+/* ─────────────────────────────────────────────────────────
+   SCROLLBAR UTILITIES
+───────────────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(156,163,175,0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(156,163,175,0.55); }
+
+/* ─────────────────────────────────────────────────────────
+   MODAL / DRAWER BACKDROP
+───────────────────────────────────────────────────────── */
+.modal-backdrop {
+  backdrop-filter: blur(6px) saturate(1.3);
+  -webkit-backdrop-filter: blur(6px) saturate(1.3);
+}
+
+/* ─────────────────────────────────────────────────────────
+   ACTIVE TAB INDICATOR (bottom nav pill)
+───────────────────────────────────────────────────────── */
+@keyframes navPillSlide {
+  from { width: 0; opacity: 0; }
+  to   { opacity: 1; }
+}
+.nav-active-pill {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--color-brand);
+  animation: navPillSlide 200ms ease both;
+}
+
+/* ─────────────────────────────────────────────────────────
+   PRINT STYLES
+───────────────────────────────────────────────────────── */
+@media print {
+  body { background: white !important; color: black !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
+
+/* ─────────────────────────────────────────────────────────
+   REDUCE MOTION
+───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .screen-slide-left,
+  .screen-slide-right,
+  .sidebar-open,
+  .sidebar-close,
+  .toast-in,
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-bounce-in,
+  .animate-number-tick,
+  .animate-badge-bounce,
+  .stagger-children > * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

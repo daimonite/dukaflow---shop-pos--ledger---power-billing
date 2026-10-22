@@ -1,0 +1,6 @@
+{
+  "name": "DukaFlow - Shop POS, Ledger & Power Billing",
+  "description": "Complete retail shop management with instant POS, weighted-average profit tracking, daily sales calendar, debtors & creditors ledger, audit log, and shared electricity meter billing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

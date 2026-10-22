@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DukaSmart</string>
+    <string name="title_activity_main">DukaSmart</string>
+    <string name="package_name">com.dukasmart.app</string>
+    <string name="custom_url_scheme">com.dukasmart.app</string>
+</resources>

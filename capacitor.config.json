@@ -1,0 +1,9 @@
+{
+  "appId": "com.dukasmart.app",
+  "appName": "DukaSmart",
+  "webDir": "dist",
+  "backgroundColor": "#faf8f5",
+  "android": {
+    "allowMixedContent": false
+  }
+}
