@@ -161,7 +161,27 @@ class SyncService {
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseKey) {
-      // Real Supabase REST API upload
+      // Special case: price update modifies an existing product record
+      if (item.type === 'price_update' && item.payload?.product_id) {
+        const patchEndpoint = `${supabaseUrl}/rest/v1/products?id=eq.${encodeURIComponent(item.payload.product_id)}`;
+        const response = await fetch(patchEndpoint, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({ sell_price: item.payload.new_price })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Supabase HTTP ${response.status}: ${errorText}`);
+        }
+        return;
+      }
+
+      // Real Supabase REST API upload (Idempotent Upsert)
       const endpoint = `${supabaseUrl}/rest/v1/${item.target_table}`;
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -169,7 +189,7 @@ class SyncService {
           'Content-Type': 'application/json',
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
-          'Prefer': 'return=minimal'
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
         },
         body: JSON.stringify(item.payload)
       });

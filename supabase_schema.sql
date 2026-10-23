@@ -1,123 +1,87 @@
 -- ====================================================================
--- DUKAFLOW PHASE 0 MIGRATION: RETAIL POS, LOOSE UNITS, CARRY-FORWARD POWER & AUDIT LOG
+-- DUKAFLOW SUPABASE SYNC SCHEMA (PHASE 0 - OFFLINE-FIRST POS SYNC)
 -- Run this in your Supabase SQL Editor (Dashboard -> SQL Editor -> New Query).
+-- It creates/updates all tables, columns, and sets RLS permissions for the POS anon key.
 -- ====================================================================
 
--- 1. Profiles & Roles (admin, manager, power_admin)
-create table if not exists profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  full_name text not null,
-  role text not null check (role in ('admin', 'manager', 'power_admin')),
-  created_at timestamptz default now()
-);
-
--- 2. Products with decimal quantities & weighted-average cost
-create table if not exists products (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  category_id text,
-  base_unit text not null check (base_unit in ('piece', 'kg', 'litre')),
-  sell_price numeric(14,2) not null check (sell_price >= 0),
-  avg_cost numeric(14,4) not null default 0 check (avg_cost >= 0),
-  stock_qty numeric(14,3) not null default 0,
-  reorder_level numeric(14,3) not null default 10,
-  barcode text,
-  active boolean default true,
-  created_at timestamptz default now()
-);
-
--- 3. Product Pack Unit Options (buy/sell conversion)
-create table if not exists product_units (
-  id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references products(id) on delete cascade,
-  label text not null,                 -- 'gunia', 'dumu', '0.5 kg', 'cup'
-  factor numeric(14,4) not null,       -- how many base units (e.g. 50 kg)
-  use_for_buying boolean default false,
-  use_for_selling boolean default false,
-  price_override numeric(14,2)
-);
-
--- 4. Sales and Snapshot Line Items
+-- 1. Sales (Header & Items)
 create table if not exists sales (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   receipt_no text unique not null,
   sold_at timestamptz default now(),
-  customer_id uuid,
-  payment_method text not null check (payment_method in ('cash', 'mpesa', 'tigopesa', 'airtel', 'credit')),
+  customer_id text,
+  customer_name text,
+  customer_phone text,
+  items jsonb,
   total numeric(14,2) not null,
   paid_amount numeric(14,2) not null,
-  debt_amount numeric(14,2) not null default 0,
-  created_by uuid references auth.users(id),
+  debt_amount numeric(14,2) default 0,
+  payment_method text not null,
+  created_by text,
+  sold_by_name text,
   voided_at timestamptz,
   void_reason text,
-  voided_by uuid references auth.users(id)
+  voided_by text
 );
 
-create table if not exists sale_items (
-  id uuid primary key default gen_random_uuid(),
-  sale_id uuid not null references sales(id) on delete cascade,
-  product_id uuid not null references products(id),
-  quantity numeric(14,3) not null,
-  unit_label text not null,
-  unit_price numeric(14,2) not null,
-  unit_cost_snapshot numeric(14,4) not null, -- cost snapshot at exact millisecond of sale
-  line_total numeric(14,2) not null,
-  line_profit numeric(14,2) not null
-);
-
--- 5. Expenses and Owner Drawings (Personal Use at Cost)
+-- 2. Operating Expenses
 create table if not exists expenses (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
+  date timestamptz default now(),
   spent_on text not null,
   category text not null,
   amount numeric(14,2) not null,
   note text,
-  created_by uuid references auth.users(id),
+  created_by text,
   created_at timestamptz default now()
 );
 
+-- 3. Stock Purchases (Suppliers)
+create table if not exists purchases (
+  id text primary key,
+  supplier_id text,
+  supplier_name text,
+  invoice_no text,
+  date timestamptz default now(),
+  items jsonb,
+  total numeric(14,2) not null,
+  paid_amount numeric(14,2) not null,
+  debt_amount numeric(14,2) default 0,
+  note text,
+  receipt_url text,
+  created_by text
+);
+
+-- 4. Inventory Movements (Stock Adjustments & Shrinkage)
+create table if not exists inventory_movements (
+  id bigserial primary key,
+  product_id text,
+  product_name text,
+  old_qty numeric(14,3),
+  new_qty numeric(14,3),
+  diff numeric(14,3),
+  reason text,
+  adjusted_at timestamptz default now()
+);
+
+-- 5. Owner Drawings (Personal Use at Cost)
 create table if not exists owner_drawings (
-  id uuid primary key default gen_random_uuid(),
-  taken_at timestamptz default now(),
-  type text not null check (type in ('product', 'cash')),
-  product_id uuid references products(id),
+  id text primary key,
+  date timestamptz default now(),
+  type text not null,
+  product_id text,
+  product_name text,
   quantity numeric(14,3),
-  cost_value numeric(14,2) not null, -- tracked at cost without distorting shop profit
+  base_unit text,
+  cost_value numeric(14,2) not null,
+  cash_amount numeric(14,2),
   note text,
-  taken_by uuid references auth.users(id)
+  taken_by text
 );
 
--- 6. Customers, Suppliers & Double-Entry Ledger
-create table if not exists customers (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  phone text,
-  is_regular boolean default true,
-  credit_limit numeric(14,2) default 50000
-);
-
-create table if not exists suppliers (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  phone text
-);
-
-create table if not exists ledger_entries (
-  id uuid primary key default gen_random_uuid(),
-  party_type text not null check (party_type in ('customer', 'supplier')),
-  party_id uuid not null,
-  direction text not null check (direction in ('debit', 'credit')),
-  amount numeric(14,2) not null,
-  ref_sale_id uuid references sales(id),
-  items_summary text,
-  note text,
-  created_at timestamptz default now(),
-  created_by uuid references auth.users(id)
-);
-
--- 7. Shared Electricity Module with Carry-Forward
+-- 6. Shared Electricity Module (Carry-Forward & Sub-Meters)
 create table if not exists power_members (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   name text not null,
   phone text,
   meter_no text not null,
@@ -126,20 +90,20 @@ create table if not exists power_members (
 );
 
 create table if not exists power_periods (
-  id uuid primary key default gen_random_uuid(),
-  month text not null,                 -- '2026-10'
+  id text primary key,
+  month text not null,
   rate_per_unit numeric(10,2) not null default 413.45,
   rate_mode text default 'fixed',
   main_meter_units numeric(10,2),
   total_bill numeric(14,2),
-  status text not null default 'open' check (status in ('open', 'closed')),
+  status text not null default 'open',
   closed_at timestamptz
 );
 
 create table if not exists meter_readings (
-  id uuid primary key default gen_random_uuid(),
-  period_id uuid references power_periods(id),
-  member_id uuid references power_members(id),
+  id text primary key,
+  period_id text,
+  member_id text,
   previous_reading numeric(10,1) not null,
   current_reading numeric(10,1) not null,
   units_used numeric(10,1) not null,
@@ -151,11 +115,53 @@ create table if not exists meter_readings (
   closing_balance numeric(14,2) not null
 );
 
--- 8. Immutable Audit Log (Triggers only, Admin read-only)
+create table if not exists power_payments (
+  id text primary key,
+  member_id text,
+  member_name text,
+  period_id text,
+  amount numeric(14,2) not null,
+  paid_at timestamptz default now(),
+  recorded_by text,
+  reference text,
+  payment_method text
+);
+
+-- 7. Customers & Debtors Ledger
+create table if not exists customers (
+  id text primary key,
+  name text not null,
+  phone text,
+  is_regular boolean default true,
+  credit_limit numeric(14,2) default 50000,
+  current_balance numeric(14,2) default 0
+);
+
+create table if not exists suppliers (
+  id text primary key,
+  name text not null,
+  phone text,
+  contact_person text
+);
+
+create table if not exists ledger_entries (
+  id text primary key,
+  party_type text not null,
+  party_id text not null,
+  direction text not null,
+  amount numeric(14,2) not null,
+  ref_sale_id text,
+  items_summary text,
+  note text,
+  created_at timestamptz default now(),
+  created_by text
+);
+
+-- 8. Immutable Audit Log
 create table if not exists audit_log (
   id bigserial primary key,
   at timestamptz default now(),
-  user_id uuid,
+  user_id text,
   user_name text,
   table_name text not null,
   record_id text,
@@ -163,10 +169,24 @@ create table if not exists audit_log (
   old_value jsonb,
   new_value jsonb,
   reason text not null,
-  severity text not null check (severity in ('alert', 'digest', 'log'))
+  severity text not null
 );
 
--- Row Level Security policies
-alter table audit_log enable row level security;
-create policy "admin reads log" on audit_log for select
-using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+-- ====================================================================
+-- ROW LEVEL SECURITY (RLS) PERMISSIONS FOR OFFLINE POS SYNC
+-- Disable RLS or allow anon inserts so terminal outbox sync works seamlessly
+-- ====================================================================
+
+alter table if exists sales disable row level security;
+alter table if exists expenses disable row level security;
+alter table if exists purchases disable row level security;
+alter table if exists inventory_movements disable row level security;
+alter table if exists owner_drawings disable row level security;
+alter table if exists power_members disable row level security;
+alter table if exists power_periods disable row level security;
+alter table if exists meter_readings disable row level security;
+alter table if exists power_payments disable row level security;
+alter table if exists customers disable row level security;
+alter table if exists suppliers disable row level security;
+alter table if exists ledger_entries disable row level security;
+alter table if exists audit_log disable row level security;

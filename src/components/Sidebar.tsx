@@ -28,6 +28,7 @@ interface SidebarProps {
   activeTab: string;
   onClose: () => void;
   onNavigate: (tab: string) => void;
+  onOpenRoleModal?: () => void;
 }
 
 interface NavGroup {
@@ -43,7 +44,7 @@ interface NavGroup {
   }[];
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onClose, onNavigate }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onClose, onNavigate, onOpenRoleModal }) => {
   const { t, currentRole, currentUser, products, customers, sales, auditLogs } = useShop();
   const { isOnline, pendingCount } = useSync();
 
@@ -165,19 +166,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onClose, on
             </button>
           </div>
 
-          {/* User Role Card */}
-          <div className="bg-white/15 rounded-2xl p-3 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <UserCheck className="w-4 h-4 text-white/80" />
-              <span className="text-white/80 text-[11px] font-semibold uppercase tracking-wider">Mtumiaji</span>
+          {/* User Role Card - Clickable to switch role */}
+          <button
+            type="button"
+            onClick={() => {
+              handleClose();
+              onOpenRoleModal?.();
+            }}
+            className="w-full text-left bg-white/15 hover:bg-white/25 rounded-2xl p-3 backdrop-blur-sm transition-all border border-white/10 btn-press group cursor-pointer"
+            title="Bofya kubadili nafasi (Admin / Meneja / Umeme)"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-white/80" />
+                <span className="text-white/80 text-[10px] font-semibold uppercase tracking-wider">Mtumiaji & Nafasi</span>
+              </div>
+              <span className="text-[10px] bg-white/20 text-white font-bold px-2 py-0.5 rounded-full group-hover:bg-white/30 transition-colors">
+                Badili
+              </span>
             </div>
             <div className="text-white font-bold text-sm">{currentUser.name}</div>
-            <div className="text-white/70 text-[11px] mt-0.5 capitalize">
+            <div className="text-white/90 text-xs mt-0.5 font-medium">
               {currentRole === 'admin' ? '🔐 Admin — Mamlaka Kamili' :
                currentRole === 'manager' ? '👤 Meneja — Uuzaji & Stoo' :
                '⚡ Msimamizi wa Umeme'}
             </div>
-          </div>
+          </button>
         </div>
 
         {/* ── Quick Stats Strip ── */}

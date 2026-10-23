@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { formatTsh, formatQty } from '../utils/translations';
 import { Product, BaseUnit } from '../types';
+import { Modal } from './Modal';
 
 export const StockScreen: React.FC = () => {
   const {
@@ -814,9 +815,13 @@ export const StockScreen: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. INTERACTIVE STOCKTAKE & SHRINKAGE BOTTOM SHEET DRAWER / MODAL         */}
       {/* ========================================================================= */}
-      {activeStocktakeProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+      <Modal
+        isOpen={!!activeStocktakeProduct}
+        onClose={handleCloseStocktake}
+        maxWidth="max-w-lg"
+      >
+        {activeStocktakeProduct && (
+          <div className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-orange-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
@@ -1028,15 +1033,19 @@ export const StockScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* ========================================================================= */}
       {/* 2. PRICE ADJUSTMENT MODAL                                                 */}
       {/* ========================================================================= */}
-      {editPriceProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4">
+      <Modal
+        isOpen={!!editPriceProduct}
+        onClose={() => setEditPriceProduct(null)}
+        maxWidth="max-w-md"
+      >
+        {editPriceProduct && (
+          <div className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-orange-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
@@ -1107,15 +1116,18 @@ export const StockScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* ========================================================================= */}
       {/* 3. RECEIVE STOCK (INGIZA MZIGO) MODAL                                    */}
       {/* ========================================================================= */}
-      {showReceiveModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+      <Modal
+        isOpen={showReceiveModal}
+        onClose={() => setShowReceiveModal(false)}
+        maxWidth="max-w-lg"
+      >
+        <div className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-orange-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
@@ -1313,15 +1325,17 @@ export const StockScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </Modal>
 
       {/* ========================================================================= */}
       {/* 4. PERSONAL DRAWINGS MODAL                                                 */}
       {/* ========================================================================= */}
-      {showDrawingsModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4">
+      <Modal
+        isOpen={showDrawingsModal}
+        onClose={() => setShowDrawingsModal(false)}
+        maxWidth="max-w-md"
+      >
+        <div className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-orange-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
@@ -1396,15 +1410,17 @@ export const StockScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </Modal>
 
       {/* ========================================================================= */}
       {/* 5. ADD NEW PRODUCT MODAL                                                  */}
       {/* ========================================================================= */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        maxWidth="max-w-lg"
+      >
+        <div className="p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-orange-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
@@ -1538,8 +1554,7 @@ export const StockScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </Modal>
     </div>
   );
 };

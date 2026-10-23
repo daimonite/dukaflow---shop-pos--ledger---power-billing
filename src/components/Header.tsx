@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
 import { useSync } from '../context/SyncContext';
+import { RoleSwitchModal } from './RoleSwitchModal';
 import {
   Store,
   Shield,
@@ -21,17 +22,29 @@ import {
 } from 'lucide-react';
 import { formatTsh } from '../utils/translations';
 
+const SCREEN_LABELS: Record<string, { sw: string; en: string; emoji: string }> = {
+  pos:       { sw: 'Mauzo ya Haraka',      en: 'Quick POS Sale',         emoji: '🛒' },
+  calendar:  { sw: 'Dashibodi / Kalenda',   en: 'Dashboard & Calendar',   emoji: '📅' },
+  stock:     { sw: 'Stoo & Bidhaa',         en: 'Stock & Inventory',      emoji: '📦' },
+  debtors:   { sw: 'Madeni & Wasambazaji',  en: 'Debtors & Creditors',    emoji: '👥' },
+  expenses:  { sw: 'Matumizi & Mwenyewe',   en: 'Expenses & Drawings',    emoji: '💳' },
+  purchases: { sw: 'Ununuzi wa Mzigo',      en: 'Stock Purchases',        emoji: '📋' },
+  power:     { sw: 'Bili ya Umeme (LUKU)',   en: 'Community Power Billing',emoji: '⚡' },
+  analytics: { sw: 'Takwimu & Faida',       en: 'Analytics & Profit',     emoji: '📊' },
+  admin:     { sw: 'Ukaguzi & Usimamizi',   en: 'Audit Log & Admin',      emoji: '🔐' },
+};
+
 export const Header: React.FC<{
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onMenuClick: () => void;
-}> = ({ activeTab, setActiveTab, onMenuClick }) => {
+  onRoleClick?: () => void;
+}> = ({ activeTab, setActiveTab, onMenuClick, onRoleClick }) => {
   const {
     language,
     setLanguage,
     t,
     currentRole,
-    setCurrentRole,
     currentUser,
     sales,
     auditLogs,
@@ -44,9 +57,9 @@ export const Header: React.FC<{
   const { isOnline, isSyncing, pendingCount, openOutbox, isSimulatedOffline } = useSync();
 
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const currentScreen = SCREEN_LABELS[activeTab] || SCREEN_LABELS.pos;
 
   // Compute today's metrics
   const todayStr = new Date().toISOString().split('T')[0];
@@ -62,19 +75,6 @@ export const Header: React.FC<{
   // Unread or high severity alerts
   const alertLogs = auditLogs.filter(l => l.severity === 'alert').slice(0, 5);
 
-  const handleRoleSelect = (role: 'admin' | 'manager' | 'power_admin') => {
-    if (role === 'admin' && currentRole !== 'admin') {
-      if (pinInput !== '1234') {
-        setPinError(true);
-        return;
-      }
-    }
-    setCurrentRole(role);
-    setShowRoleModal(false);
-    setPinInput('');
-    setPinError(false);
-  };
-
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-orange-100 shadow-xs">
       {/* Top Banner with branding and quick stats */}
@@ -86,10 +86,12 @@ export const Header: React.FC<{
             {/* Hamburger menu button (opens sidebar) */}
             <button
               onClick={onMenuClick}
-              className="flex items-center justify-center w-9 h-9 rounded-xl text-gray-600 hover:bg-orange-50 hover:text-orange-600 border border-gray-200 transition-all btn-press"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 transition-all btn-press shadow-2xs font-bold text-xs cursor-pointer"
               aria-label="Open navigation menu"
+              title="Fungua Menyu ya Pembeni (Sidebar Navigation)"
             >
-              <Menu className="w-4 h-4" />
+              <Menu className="w-4 h-4 text-orange-600" />
+              <span className="font-extrabold text-[11px] uppercase tracking-wider hidden sm:inline text-orange-900">Menyu</span>
             </button>
             <img
               src="https://lh3.googleusercontent.com/aida/AEtjO1WqfVNZWOzPRUIq-IOOGmS4dWIh3bgUArKpuvKcxbiupsXxZq7kl2bcdiTcGM59kBT14Wj0UYum6q4zSjWOAUbLQVifeeSGnMAZEK87ipqiT4nbsMKk9NcfRKUXF696hmS0X_-PjrDE_INa3qnPjC6477PIIH--Ggp2gXo-MlTm9q5CNkAItcbV7BZ9Uzx6PGnAD7tX04njAd_PVzKMD7HobdIJYg03Mf3CGhEkmvt9EQJ2ipUSyICEAHA"
@@ -109,9 +111,19 @@ export const Header: React.FC<{
                   Mtandaoni
                 </span>
               </div>
-              <p className="text-[11px] text-gray-500 hidden sm:block truncate max-w-xs font-medium">
-                Neema Super Duka · Arusha · {t.appSubtitle}
+              <p className="text-[11px] text-gray-500 truncate max-w-[200px] sm:max-w-xs font-medium">
+                <span className="sm:hidden font-bold text-orange-700 mr-1">
+                  {currentScreen.emoji} {language === 'sw' ? currentScreen.sw : currentScreen.en} ·
+                </span>
+                <span className="hidden sm:inline">Neema Super Duka · Arusha · </span>
+                {t.appSubtitle}
               </p>
+            </div>
+
+            {/* Current Active Screen Tag (Desktop) */}
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-orange-50/70 border border-orange-200/80 rounded-xl text-xs font-bold text-orange-950 ml-1">
+              <span>{currentScreen.emoji}</span>
+              <span className="truncate">{language === 'sw' ? currentScreen.sw : currentScreen.en}</span>
             </div>
           </div>
 
@@ -257,7 +269,7 @@ export const Header: React.FC<{
 
             {/* Role Switcher Pill */}
             <button
-              onClick={() => setShowRoleModal(true)}
+              onClick={() => onRoleClick ? onRoleClick() : setShowRoleModal(true)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                 currentRole === 'admin'
                   ? 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
@@ -281,106 +293,10 @@ export const Header: React.FC<{
       </div>
 
       {/* Role Switch Modal */}
-      {showRoleModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-base font-bold text-gray-900 mb-1">{t.switchRole}</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Chagua nafasi unayofanyia kazi dukani.
-            </p>
-
-            <div className="space-y-2 mb-4">
-              <button
-                onClick={() => handleRoleSelect('manager')}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
-                  currentRole === 'manager'
-                    ? 'border-orange-500 bg-orange-50/50 text-orange-950 font-bold'
-                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <UserCheck className="w-5 h-5 text-orange-600" />
-                  <div>
-                    <div className="text-sm font-semibold">{t.manager}</div>
-                    <div className="text-[11px] text-gray-500">Kuuza, kuweka matumizi, kubadili bei (inalogiwa)</div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleRoleSelect('admin')}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
-                  currentRole === 'admin'
-                    ? 'border-purple-500 bg-purple-50/50 text-purple-950 font-bold'
-                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Shield className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <div className="text-sm font-semibold">{t.admin}</div>
-                    <div className="text-[11px] text-gray-500">Mamlaka kamili, kuona audit log, kufunga miezi ya umeme</div>
-                  </div>
-                </div>
-                <Lock className="w-4 h-4 text-gray-400" />
-              </button>
-
-              <button
-                onClick={() => handleRoleSelect('power_admin')}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
-                  currentRole === 'power_admin'
-                    ? 'border-blue-500 bg-blue-50/50 text-blue-950 font-bold'
-                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Zap className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <div className="text-sm font-semibold">{t.powerAdmin}</div>
-                    <div className="text-[11px] text-gray-500">Kusimamia namba za mita na bili za majirani</div>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            {/* Admin PIN input if trying to switch to Admin */}
-            {currentRole !== 'admin' && (
-              <div className="mb-4 bg-purple-50/60 p-3 rounded-2xl border border-purple-100">
-                <label className="block text-xs font-semibold text-purple-900 mb-1">
-                  {t.enterPin}
-                </label>
-                <input
-                  type="password"
-                  maxLength={4}
-                  value={pinInput}
-                  onChange={e => {
-                    setPinInput(e.target.value);
-                    setPinError(false);
-                  }}
-                  placeholder="PIN: 1234"
-                  className="w-full text-center tracking-widest text-lg font-mono px-3 py-1.5 rounded-xl border border-purple-200 bg-white focus:outline-orange-500"
-                />
-                {pinError && (
-                  <p className="text-red-600 text-xs mt-1 text-center font-medium">PIN sio sahihi (Tumia 1234)</p>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowRoleModal(false);
-                  setPinInput('');
-                  setPinError(false);
-                }}
-                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-              >
-                {t.cancel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RoleSwitchModal
+        isOpen={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+      />
     </header>
   );
 };
