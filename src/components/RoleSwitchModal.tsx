@@ -10,7 +10,7 @@ interface RoleSwitchModalProps {
 }
 
 export const RoleSwitchModal: React.FC<RoleSwitchModalProps> = ({ isOpen, onClose }) => {
-  const { currentRole, setCurrentRole, t } = useShop();
+  const { currentRole, setCurrentRole, settings, t } = useShop();
   const [targetRole, setTargetRole] = useState<UserRole>(currentRole);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
@@ -28,7 +28,8 @@ export const RoleSwitchModal: React.FC<RoleSwitchModalProps> = ({ isOpen, onClos
     e.preventDefault();
 
     if (targetRole === 'admin' && currentRole !== 'admin') {
-      if (pinInput !== '1234') {
+      const validPin = settings.adminPin || '1234';
+      if (pinInput !== validPin) {
         setPinError(true);
         return;
       }
@@ -171,27 +172,27 @@ export const RoleSwitchModal: React.FC<RoleSwitchModalProps> = ({ isOpen, onClos
         {targetRole === 'admin' && currentRole !== 'admin' && (
           <div className="bg-purple-50/80 p-4 rounded-2xl border border-purple-200 space-y-2 animate-in fade-in duration-150">
             <label className="block text-xs font-bold text-purple-950">
-              Weka PIN ya Admin (1234):
+              Weka PIN ya Admin {settings.adminPin === '1234' ? '(Kawaida: 1234)' : ''}:
             </label>
             <input
               type="password"
-              maxLength={4}
+              maxLength={6}
               autoFocus
               value={pinInput}
               onChange={e => {
                 setPinInput(e.target.value);
                 setPinError(false);
               }}
-              placeholder="1234"
+              placeholder="••••"
               className="w-full text-center tracking-widest text-2xl font-mono px-3 py-2 rounded-xl border border-purple-300 bg-white focus:outline-purple-500 text-purple-950 font-bold shadow-xs"
             />
             {pinError && (
               <p className="text-red-600 text-xs text-center font-bold">
-                ❌ PIN sio sahihi! (Tumia PIN: 1234)
+                ❌ PIN sio sahihi!
               </p>
             )}
             <p className="text-[11px] text-purple-800 text-center font-medium">
-              Ingiza PIN <b>1234</b> kisha bofya kitufe cha kuthibitisha hapa chini.
+              Ingiza PIN ya msimamizi kisha bofya kitufe cha kuthibitisha hapa chini.
             </p>
           </div>
         )}

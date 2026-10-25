@@ -45,7 +45,7 @@ interface NavGroup {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onClose, onNavigate, onOpenRoleModal }) => {
-  const { t, currentRole, currentUser, products, customers, sales, auditLogs } = useShop();
+  const { t, currentRole, currentUser, settings, products, customers, sales, auditLogs } = useShop();
   const { isOnline, pendingCount } = useSync();
 
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -154,7 +154,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onClose, on
                 <div className="font-display font-extrabold text-white text-lg leading-tight">
                   Duka<span className="text-white/80">Smart</span>
                 </div>
-                <div className="text-white/70 text-[11px] font-medium">Neema Super Duka · Arusha</div>
+                <div className="text-white/70 text-[11px] font-medium truncate max-w-[190px]">
+                  {settings.storeName} · {settings.storeLocation}
+                </div>
               </div>
             </div>
             <button

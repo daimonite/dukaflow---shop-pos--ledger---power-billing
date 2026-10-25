@@ -15,10 +15,12 @@ import {
   DollarSign,
   RotateCcw,
   Printer,
-  X
+  X,
+  Check
 } from 'lucide-react';
 import { formatTsh } from '../utils/translations';
 import { PowerMember, PowerPeriod, MeterReading, PowerPayment } from '../types';
+import { Modal } from './Modal';
 
 export const PowerBillingScreen: React.FC = () => {
   const {
@@ -32,7 +34,8 @@ export const PowerBillingScreen: React.FC = () => {
     recordPowerPayment,
     updatePowerRate,
     closePowerPeriodAndRollOver,
-    currentRole
+    currentRole,
+    settings
   } = useShop();
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(() => {
@@ -61,6 +64,14 @@ export const PowerBillingScreen: React.FC = () => {
   const [paymentAmountInput, setPaymentAmountInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PowerPayment['payment_method']>('mpesa');
   const [paymentReference, setPaymentReference] = useState('');
+  const [lastPowerReceipt, setLastPowerReceipt] = useState<{
+    memberName: string;
+    meterNo: string;
+    amount: number;
+    remaining: number;
+    method: string;
+    ref?: string;
+  } | null>(null);
 
   const [showRateModal, setShowRateModal] = useState(false);
   const [rateMode, setRateMode] = useState<'fixed' | 'derived'>('fixed');
@@ -90,6 +101,12 @@ export const PowerBillingScreen: React.FC = () => {
     return currentPeriodReadings.filter(r => r.closing_balance > 0);
   }, [currentPeriodReadings]);
 
+  // WhatsApp power payment receipt
+  const getWhatsAppPowerPaymentReceipt = (receipt: { memberName: string; meterNo: string; amount: number; remaining: number; method: string; ref?: string }) => {
+    const refLine = receipt.ref ? `%0A*Ref / Muamala:* ${receipt.ref}` : '';
+    return `*${settings.storeName.toUpperCase()} - MALIPO YA UMEME (LUKU)*%0A---------------------------%0A*Mhusika:* ${receipt.memberName}%0A*Sub-Meter:* ${receipt.meterNo}%0A*Mwezi:* ${activePeriod?.month_label || 'Huu'}%0A*Kiasi Kilicholipwa:* ${formatTsh(receipt.amount)}%0A*Njia:* ${receipt.method.toUpperCase()}${refLine}%0A*Baki ya Mwezi Huu:* ${formatTsh(receipt.remaining)}%0A---------------------------%0ATarehe: ${new Date().toLocaleString()}%0AAsante sana kwa ushirikiano wako!`;
+  };
+
   // Save new reading
   const handleSaveReading = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +132,8 @@ export const PowerBillingScreen: React.FC = () => {
       return;
     }
 
+    const remaining = Math.max(0, Math.round(paymentModalData.reading.closing_balance - amt));
+
     recordPowerPayment(
       activePeriod.id,
       paymentModalData.member.id,
@@ -122,6 +141,16 @@ export const PowerBillingScreen: React.FC = () => {
       paymentMethod,
       paymentReference.trim() || undefined
     );
+
+    setLastPowerReceipt({
+      memberName: paymentModalData.member.name,
+      meterNo: paymentModalData.member.meter_no,
+      amount: amt,
+      remaining,
+      method: paymentMethod,
+      ref: paymentReference.trim() || undefined,
+    });
+
     setPaymentModalData(null);
     setPaymentAmountInput('');
     setPaymentReference('');
@@ -508,20 +537,35 @@ export const PowerBillingScreen: React.FC = () => {
       </div>
 
       {/* Modal: Enter Reading */}
-      {readingModalData && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-1">
-              Weka Kipimo cha Mita (Current Reading)
-            </h3>
-            <p className="text-xs text-gray-500 mb-3">
-              Jirani: <span className="font-bold text-gray-800">{readingModalData.member.name}</span> ({readingModalData.member.meter_no})
-            </p>
+      <Modal
+        isOpen={Boolean(readingModalData)}
+        onClose={() => setReadingModalData(null)}
+        maxWidth="max-w-md"
+      >
+        {readingModalData && (
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+              <div>
+                <h3 className="font-extrabold text-base text-gray-900">
+                  Weka Kipimo cha Mita (Current Reading)
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Jirani: <span className="font-bold text-gray-800">{readingModalData.member.name}</span> ({readingModalData.member.meter_no})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReadingModalData(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <form onSubmit={handleSaveReading} className="space-y-3">
-              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200 text-xs">
+            <form onSubmit={handleSaveReading} className="space-y-3.5">
+              <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 text-xs">
                 <span className="text-gray-500 block">Kipimo cha Mwezi Uliopita (Last Reading):</span>
-                <span className="font-mono font-bold text-sm text-gray-800">
+                <span className="font-mono font-bold text-base text-gray-800">
                   {readingModalData.reading.previous_reading} kWh
                 </span>
               </div>
@@ -537,12 +581,12 @@ export const PowerBillingScreen: React.FC = () => {
                   value={readingInput}
                   onChange={e => setReadingInput(e.target.value)}
                   placeholder="Mf. 1475.0"
-                  className="w-full px-3 py-2 rounded-xl border border-blue-200 text-sm font-mono font-bold focus:border-blue-500 focus:outline-hidden"
+                  className="w-full px-3 py-2.5 rounded-xl border border-blue-200 text-sm font-mono font-bold focus:border-blue-500 focus:outline-hidden shadow-2xs"
                 />
               </div>
 
               {parseFloat(readingInput) > readingModalData.reading.previous_reading && (
-                <div className="p-2.5 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-blue-900 space-y-1">
+                <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-100 text-xs text-blue-900 space-y-1">
                   <div className="flex justify-between">
                     <span>Uniti zilizotumika:</span>
                     <span className="font-mono font-bold">
@@ -551,76 +595,145 @@ export const PowerBillingScreen: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Gharama ya mwezi huu:</span>
-                    <span className="font-mono font-bold">
+                    <span className="font-mono font-bold text-blue-950">
                       {formatTsh((parseFloat(readingInput) - readingModalData.reading.previous_reading) * activePeriod.rate_per_unit)}
                     </span>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setReadingModalData(null)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
                 >
                   Ghairi
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
+                  className="px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Hifadhi Kipimo
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Modal: Record Power Payment */}
-      {paymentModalData && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-1">
-              Rekodi Malipo ya Umeme
-            </h3>
-            <p className="text-xs text-gray-500 mb-3">
-              Jirani: <span className="font-bold text-gray-800">{paymentModalData.member.name}</span>
-            </p>
+      <Modal
+        isOpen={Boolean(paymentModalData)}
+        onClose={() => setPaymentModalData(null)}
+        maxWidth="max-w-md"
+      >
+        {paymentModalData && (
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+              <div>
+                <h3 className="font-extrabold text-base text-gray-900">
+                  Rekodi Malipo ya Umeme
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Jirani: <span className="font-bold text-gray-800">{paymentModalData.member.name}</span> ({paymentModalData.member.meter_no})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPaymentModalData(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <form onSubmit={handleSavePayment} className="space-y-3">
-              <div className="bg-orange-50/60 p-2.5 rounded-xl border border-orange-100 text-xs">
-                <span className="text-gray-500 block">Jumla Anayodaiwa Mwezi Huu:</span>
-                <span className="font-mono font-black text-sm text-orange-700">
-                  {formatTsh(paymentModalData.reading.closing_balance)}
+            <form onSubmit={handleSavePayment} className="space-y-3.5">
+              <div className="bg-orange-50/70 p-3 rounded-2xl border border-orange-200 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-gray-600 block text-[11px] font-semibold">Anayodaiwa Mwezi Huu:</span>
+                  <span className="font-mono font-black text-base text-orange-900">
+                    {formatTsh(paymentModalData.reading.closing_balance)}
+                  </span>
+                </div>
+                <span className="text-xs font-bold bg-orange-200 text-orange-900 px-2 py-0.5 rounded-full">
+                  LUKU
                 </span>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi Kilicholipwa (TSh):</label>
+                <div className="flex items-center justify-between text-xs font-bold text-gray-700 mb-1">
+                  <label>Kiasi Kilicholipwa (TSh):</label>
+                  {paymentAmountInput && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmountInput('')}
+                      className="text-[10px] text-red-600 hover:underline"
+                    >
+                      Futa
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   required
                   value={paymentAmountInput}
                   onChange={e => setPaymentAmountInput(e.target.value)}
-                  placeholder="20000"
-                  className="w-full px-3 py-2 rounded-xl border border-emerald-200 text-sm font-mono font-bold focus:border-emerald-500 focus:outline-hidden"
+                  placeholder={paymentModalData.reading.closing_balance.toString()}
+                  className="w-full px-3 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50/20 text-base font-mono font-extrabold text-gray-900 focus:bg-white focus:border-emerald-600 focus:outline-hidden shadow-2xs"
                 />
+
+                {/* Quick button to pay in full */}
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentAmountInput(paymentModalData.reading.closing_balance.toString())}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    Lipa Yote ({formatTsh(paymentModalData.reading.closing_balance)})
+                  </button>
+                  {[5000, 10000, 20000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => {
+                        const curr = parseFloat(paymentAmountInput) || 0;
+                        setPaymentAmountInput((curr + amt).toString());
+                      }}
+                      className="px-2 py-0.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                    >
+                      +{amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Njia ya Malipo:</label>
-                <select
-                  value={paymentMethod}
-                  onChange={e => setPaymentMethod(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-emerald-500 focus:outline-hidden"
-                >
-                  <option value="mpesa">M-Pesa</option>
-                  <option value="cash">Taslimu (Cash)</option>
-                  <option value="tigopesa">Tigo Pesa</option>
-                  <option value="airtel">Airtel Money</option>
-                </select>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">Njia ya Malipo:</label>
+                <div className="grid grid-cols-4 gap-1.5 text-xs">
+                  {(['mpesa', 'cash', 'tigopesa', 'airtel'] as PowerPayment['payment_method'][]).map(pm => (
+                    <button
+                      key={pm}
+                      type="button"
+                      onClick={() => setPaymentMethod(pm)}
+                      className={`py-2 px-1 rounded-xl font-bold text-center border transition-all cursor-pointer ${
+                        paymentMethod === pm
+                          ? pm === 'mpesa'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : pm === 'tigopesa'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : pm === 'airtel'
+                            ? 'bg-red-600 text-white border-red-600 shadow-xs'
+                            : 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {pm === 'cash' ? '💵 Cash' :
+                       pm === 'mpesa' ? '🟢 M-Pesa' :
+                       pm === 'tigopesa' ? '🔵 Tigo' : '🔴 Airtel'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -630,228 +743,309 @@ export const PowerBillingScreen: React.FC = () => {
                   value={paymentReference}
                   onChange={e => setPaymentReference(e.target.value)}
                   placeholder="Mf. M-Pesa Code QK8819"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-emerald-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-medium focus:border-emerald-500 focus:outline-hidden"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setPaymentModalData(null)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
                 >
                   Ghairi
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
+                  className="px-5 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Thibitisha Malipo
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* Modal: Adjust Power Rate (Fixed or Derived Line Loss Mode) */}
-      {showRateModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-1">
-              Rekebisha Kiwango cha Bei ya Umeme (Tariff Rate)
-            </h3>
-            <p className="text-xs text-gray-500 mb-3">
-              Mwezi wa <span className="font-bold text-gray-800">{activePeriod.month_label}</span>
+      {/* Modal: WhatsApp Power Payment Receipt */}
+      <Modal
+        isOpen={Boolean(lastPowerReceipt)}
+        onClose={() => setLastPowerReceipt(null)}
+        maxWidth="max-w-sm"
+      >
+        {lastPowerReceipt && (
+          <div className="p-5 text-center space-y-3">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-6 h-6 stroke-[3]" />
+            </div>
+            <h3 className="font-extrabold text-base text-gray-900">Malipo ya Umeme Yamerekodiwa!</h3>
+            <p className="text-xs text-gray-500">
+              <span className="font-bold text-gray-800">{lastPowerReceipt.memberName}</span> ({lastPowerReceipt.meterNo}) amelipa{' '}
+              <span className="font-bold text-emerald-700">{formatTsh(lastPowerReceipt.amount)}</span>.
             </p>
 
-            <form onSubmit={handleSaveRate} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Mfumo wa Ukokotoaji:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRateMode('fixed')}
-                    className={`py-2 rounded-xl text-xs font-bold border ${
-                      rateMode === 'fixed'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-gray-50 text-gray-700 border-gray-200'
-                    }`}
-                  >
-                    Kiwango Kisichobadilika (Fixed Rate)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRateMode('derived')}
-                    className={`py-2 rounded-xl text-xs font-bold border ${
-                      rateMode === 'derived'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-gray-50 text-gray-700 border-gray-200'
-                    }`}
-                  >
-                    Kiwango cha Upotevu (Line Loss Share)
-                  </button>
-                </div>
+            <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 text-xs space-y-1 text-left">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Njia:</span>
+                <span className="font-bold uppercase">{lastPowerReceipt.method}</span>
               </div>
+              {lastPowerReceipt.ref && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Ref Code:</span>
+                  <span className="font-mono font-bold">{lastPowerReceipt.ref}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
+                <span className="text-gray-700">Baki ya Mwezi Huu:</span>
+                <span className="text-orange-700 font-mono">{formatTsh(lastPowerReceipt.remaining)}</span>
+              </div>
+            </div>
 
-              {rateMode === 'fixed' ? (
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setLastPowerReceipt(null)}
+                className="flex-1 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Funga
+              </button>
+              <a
+                href={`https://wa.me/?text=${getWhatsAppPowerPaymentReceipt(lastPowerReceipt)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Tuma WhatsApp</span>
+              </a>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal: Adjust Power Rate (Fixed or Derived Line Loss Mode) */}
+      <Modal
+        isOpen={showRateModal}
+        onClose={() => setShowRateModal(false)}
+        maxWidth="max-w-md"
+      >
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+            <div>
+              <h3 className="font-extrabold text-base text-gray-900">
+                Rekebisha Kiwango cha Bei ya Umeme (Tariff Rate)
+              </h3>
+              <p className="text-xs text-gray-500">
+                Mwezi wa <span className="font-bold text-gray-800">{activePeriod.month_label}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRateModal(false)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveRate} className="space-y-3.5">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1.5">Mfumo wa Ukokotoaji:</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRateMode('fixed')}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    rateMode === 'fixed'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                  }`}
+                >
+                  Kiwango Kisichobadilika (Fixed Rate)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRateMode('derived')}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    rateMode === 'derived'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                  }`}
+                >
+                  Kiwango cha Upotevu (Line Loss Share)
+                </button>
+              </div>
+            </div>
+
+            {rateMode === 'fixed' ? (
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  Bei kwa kila uniti ya umeme (TSh):
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={rateInput}
+                  onChange={e => setRateInput(e.target.value)}
+                  placeholder="413.45"
+                  className="w-full px-3 py-2.5 rounded-xl border border-blue-200 text-sm font-mono font-bold focus:border-blue-500 focus:outline-hidden"
+                />
+                <span className="text-[10px] text-gray-500 block mt-1">
+                  Bei ya kawaida ya LUKU Tanzania ni takriban 413.45 TSh kwa uniti moja.
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
                 <div>
                   <label className="text-xs font-bold text-gray-700 block mb-1">
-                    Bei kwa kila uniti ya umeme (TSh):
+                    Jumla ya Pesa Zilizotumika Kununua Tokeni za LUKU (TSh):
                   </label>
                   <input
                     type="number"
-                    step="0.01"
                     required
-                    value={rateInput}
-                    onChange={e => setRateInput(e.target.value)}
-                    placeholder="413.45"
-                    className="w-full px-3 py-2 rounded-xl border border-blue-200 text-sm font-mono font-bold focus:border-blue-500 focus:outline-hidden"
+                    value={totalLukuBillInput}
+                    onChange={e => setTotalLukuBillInput(e.target.value)}
+                    placeholder="150000"
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-mono font-bold"
                   />
-                  <span className="text-[10px] text-gray-500 block mt-1">
-                    Bei ya kawaida ya LUKU Tanzania ni takriban 413.45 TSh kwa uniti moja.
-                  </span>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 block mb-1">
-                      Jumla ya Pesa Zilizotumika Kununua Tokeni za LUKU (TSh):
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={totalLukuBillInput}
-                      onChange={e => setTotalLukuBillInput(e.target.value)}
-                      placeholder="150000"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-bold"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 block mb-1">
-                      Uniti Zilizohesabiwa kwenye Mita Kuu (Main Meter):
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={mainMeterUnitsInput}
-                      onChange={e => setMainMeterUnitsInput(e.target.value)}
-                      placeholder="320"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-bold"
-                    />
-                  </div>
-
-                  {parseFloat(mainMeterUnitsInput) > 0 && (
-                    <div className="p-2.5 bg-blue-50 rounded-xl text-xs text-blue-900 font-semibold">
-                      Bei itakayotumika: {(parseFloat(totalLukuBillInput) / parseFloat(mainMeterUnitsInput)).toFixed(2)} TSh / uniti (inagawa upotevu wa nyaya kwa usawa).
-                    </div>
-                  )}
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">
+                    Uniti Zilizohesabiwa kwenye Mita Kuu (Main Meter):
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={mainMeterUnitsInput}
+                    onChange={e => setMainMeterUnitsInput(e.target.value)}
+                    placeholder="320"
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-mono font-bold"
+                  />
                 </div>
-              )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRateModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi Kiwango
-                </button>
+                {parseFloat(mainMeterUnitsInput) > 0 && (
+                  <div className="p-3 bg-blue-50 rounded-xl text-xs text-blue-900 font-semibold">
+                    Bei itakayotumika: {(parseFloat(totalLukuBillInput) / parseFloat(mainMeterUnitsInput)).toFixed(2)} TSh / uniti (inagawa upotevu wa nyaya kwa usawa).
+                  </div>
+                )}
               </div>
-            </form>
-          </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowRateModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Ghairi
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Hifadhi Kiwango
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </Modal>
 
       {/* Modal: Add Power Member */}
-      {showMemberModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-3">Ongeza Jirani / Chumba cha Umeme</h3>
-            <form onSubmit={handleAddMember} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Jina Kamili:</label>
-                <input
-                  type="text"
-                  required
-                  value={newMemberName}
-                  onChange={e => setNewMemberName(e.target.value)}
-                  placeholder="Mf. Juma Mwangi au Asha"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Simu (Kwa ajili ya SMS/WhatsApp):</label>
-                <input
-                  type="text"
-                  value={newMemberPhone}
-                  onChange={e => setNewMemberPhone(e.target.value)}
-                  placeholder="0754 991 122"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Sub-Meter:</label>
-                <input
-                  type="text"
-                  value={newMemberMeterNo}
-                  onChange={e => setNewMemberMeterNo(e.target.value)}
-                  placeholder="SUB-MTR-06"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Chumba / Fremu:</label>
-                <input
-                  type="text"
-                  value={newMemberRoom}
-                  onChange={e => setNewMemberRoom(e.target.value)}
-                  placeholder="Mf. Chumba C2 (Mbele)"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Kipimo cha Kuanzia (kWh):</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newMemberInitialReading}
-                  onChange={e => setNewMemberInitialReading(e.target.value)}
-                  placeholder="0"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowMemberModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi Jirani
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showMemberModal}
+        onClose={() => setShowMemberModal(false)}
+        maxWidth="max-w-md"
+      >
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+            <h3 className="font-extrabold text-base text-gray-900">Ongeza Jirani / Chumba cha Umeme</h3>
+            <button
+              type="button"
+              onClick={() => setShowMemberModal(false)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+
+          <form onSubmit={handleAddMember} className="space-y-3.5">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Jina Kamili:</label>
+              <input
+                type="text"
+                required
+                value={newMemberName}
+                onChange={e => setNewMemberName(e.target.value)}
+                placeholder="Mf. Juma Mwangi au Asha"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Simu (Kwa ajili ya SMS/WhatsApp):</label>
+              <input
+                type="text"
+                value={newMemberPhone}
+                onChange={e => setNewMemberPhone(e.target.value)}
+                placeholder="0754 991 122"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Sub-Meter:</label>
+              <input
+                type="text"
+                value={newMemberMeterNo}
+                onChange={e => setNewMemberMeterNo(e.target.value)}
+                placeholder="SUB-MTR-06"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-mono focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Chumba / Fremu:</label>
+              <input
+                type="text"
+                value={newMemberRoom}
+                onChange={e => setNewMemberRoom(e.target.value)}
+                placeholder="Mf. Chumba C2 (Mbele)"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Kipimo cha Kuanzia (kWh):</label>
+              <input
+                type="number"
+                step="0.1"
+                value={newMemberInitialReading}
+                onChange={e => setNewMemberInitialReading(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-mono focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowMemberModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Ghairi
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Hifadhi Jirani
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

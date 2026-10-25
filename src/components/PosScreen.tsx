@@ -20,10 +20,14 @@ import {
   Sparkles,
   ArrowRight,
   AlertCircle,
-  Coins
+  Coins,
+  Check,
+  Banknote,
+  Smartphone
 } from 'lucide-react';
 import { formatTsh, formatQty } from '../utils/translations';
 import { Product, PaymentMethod, Sale, Customer } from '../types';
+import { Modal } from './Modal';
 import confetti from 'canvas-confetti';
 
 interface CartItem {
@@ -40,7 +44,8 @@ export const PosScreen: React.FC = () => {
     products,
     customers,
     createSale,
-    currentRole
+    currentRole,
+    settings
   } = useShop();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +57,7 @@ export const PosScreen: React.FC = () => {
   const [customCustomerName, setCustomCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [cashTendered, setCashTendered] = useState<string>('');
+  const [paymentReference, setPaymentReference] = useState<string>('');
   const [roundTo50, setRoundTo50] = useState<boolean>(true);
 
   // Success Receipt Modal state
@@ -234,6 +240,7 @@ export const PosScreen: React.FC = () => {
       customerPhone: selectedCustomer ? selectedCustomer.phone : undefined,
       paymentMethod,
       paidAmount,
+      paymentReference: paymentReference?.trim() || undefined,
     });
 
     // Reset checkout & cart
@@ -241,6 +248,7 @@ export const PosScreen: React.FC = () => {
     setSelectedCustomer(null);
     setCustomCustomerName('');
     setCashTendered('');
+    setPaymentReference('');
     setCompletedSale(sale);
     setShowReceiptModal(true);
 
@@ -261,7 +269,9 @@ export const PosScreen: React.FC = () => {
       .map(i => `• ${i.product_name} (${formatQty(i.quantity, i.unit_label)}): ${formatTsh(i.line_total)}`)
       .join('%0A');
 
-    return `*RISITI YA MAUZO - DUKASMART*%0A---------------------------%0A*Namba:* ${sale.receipt_no}%0A*Tarehe:* ${new Date(sale.sold_at).toLocaleString()}%0A*Mteja:* ${sale.customer_name || 'Taslimu'}%0A*Muuzaji:* ${sale.sold_by_name}%0A---------------------------%0A*Bidhaa:*%0A${itemsText}%0A---------------------------%0A*JUMLA:* ${formatTsh(sale.total)}%0A*Malipo:* ${sale.payment_method.toUpperCase()} (${formatTsh(sale.paid_amount)})%0A${sale.debt_amount > 0 ? `*Baki ya Deni:* ${formatTsh(sale.debt_amount)}%0A` : ''}Asante kwa kununua nasi! Karibu tena.`;
+    const refText = sale.payment_reference ? `%0A*Ref/Muamala:* ${sale.payment_reference}` : '';
+
+    return `*RISITI YA MAUZO - ${settings.storeName.toUpperCase()}*%0A---------------------------%0A*Namba:* ${sale.receipt_no}%0A*Tarehe:* ${new Date(sale.sold_at).toLocaleString()}%0A*Mteja:* ${sale.customer_name || 'Taslimu'}%0A*Muuzaji:* ${sale.sold_by_name}%0A---------------------------%0A*Bidhaa:*%0A${itemsText}%0A---------------------------%0A*JUMLA:* ${formatTsh(sale.total)}%0A*Njia ya Malipo:* ${sale.payment_method.toUpperCase()} (${formatTsh(sale.paid_amount)})${refText}%0A${sale.debt_amount > 0 ? `*Baki ya Deni:* ${formatTsh(sale.debt_amount)}%0A` : ''}${settings.receiptFooter || 'Asante kwa kununua nasi! Karibu tena.'}`;
   };
 
   return (
@@ -548,51 +558,142 @@ export const PosScreen: React.FC = () => {
             </div>
 
             {/* Payment Method Selector */}
-            <div className="pt-2 space-y-1.5">
-              <label className="text-[11px] font-bold text-gray-700 block">{t.paymentMethod}:</label>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 text-[11px]">
-                {(['cash', 'mpesa', 'tigopesa', 'airtel', 'credit'] as PaymentMethod[]).map(pm => (
-                  <button
-                    key={pm}
-                    onClick={() => setPaymentMethod(pm)}
-                    className={`py-1.5 px-1 rounded-xl font-bold text-center border transition-all ${
-                      paymentMethod === pm
-                        ? pm === 'credit'
-                          ? 'bg-red-600 text-white border-red-600 shadow-xs'
-                          : 'bg-orange-500 text-white border-orange-500 shadow-xs'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    {pm === 'cash'
-                      ? 'Cash'
-                      : pm === 'mpesa'
-                      ? 'M-Pesa'
-                      : pm === 'tigopesa'
-                      ? 'Tigo'
-                      : pm === 'airtel'
-                      ? 'Airtel'
-                      : 'Mkopo'}
-                  </button>
-                ))}
+            <div className="pt-2 space-y-2">
+              <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                <span>{t.paymentMethod}:</span>
+                <span className="text-[10px] font-semibold text-gray-400 capitalize">
+                  {paymentMethod === 'credit' ? 'Mkopo' : paymentMethod.toUpperCase()}
+                </span>
+              </label>
+
+              {/* Payment Method Pills */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-xs">
+                {(['cash', 'mpesa', 'tigopesa', 'airtel', 'credit'] as PaymentMethod[]).map(pm => {
+                  const isSelected = paymentMethod === pm;
+                  return (
+                    <button
+                      key={pm}
+                      type="button"
+                      onClick={() => setPaymentMethod(pm)}
+                      className={`py-2 px-1 rounded-2xl font-bold text-center border transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                        isSelected
+                          ? pm === 'credit'
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : pm === 'mpesa'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : pm === 'tigopesa'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : pm === 'airtel'
+                            ? 'bg-red-600 text-white border-red-600 shadow-xs'
+                            : 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                          : 'bg-gray-50/80 text-gray-700 border-gray-200/80 hover:bg-gray-100 hover:border-gray-300'
+                      }`}
+                    >
+                      <span>
+                        {pm === 'cash' ? '💵 Cash' :
+                         pm === 'mpesa' ? '🟢 M-Pesa' :
+                         pm === 'tigopesa' ? '🔵 Tigo' :
+                         pm === 'airtel' ? '🔴 Airtel' : '📝 Mkopo'}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Cash tender & change calculator */}
+              {/* Cash tender & change calculator with quick chips */}
               {paymentMethod === 'cash' && cart.length > 0 && (
-                <div className="flex items-center gap-2 pt-1">
-                  <div className="flex-1">
+                <div className="bg-orange-50/50 p-2.5 rounded-2xl border border-orange-100/80 space-y-2 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-gray-700">
+                    <span>Pesa Iliyopokelewa (TSh):</span>
+                    {tenderedNum > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered('')}
+                        className="text-[10px] text-red-600 hover:underline"
+                      >
+                        Futa
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative">
                     <input
                       type="number"
                       value={cashTendered}
                       onChange={e => setCashTendered(e.target.value)}
-                      placeholder="Pesa uliyopokea (TSh)"
-                      className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:border-orange-500 focus:outline-hidden"
+                      placeholder={roundedSubtotal ? `${roundedSubtotal}` : '0'}
+                      className="w-full pl-3 pr-20 py-2 bg-white border border-orange-200 rounded-xl text-sm font-mono font-extrabold text-gray-900 focus:border-orange-500 focus:outline-hidden shadow-2xs"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setCashTendered(roundedSubtotal.toString())}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold bg-orange-100 hover:bg-orange-200 text-orange-800 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                      title="Weka pesa kamilifu"
+                    >
+                      Kamilifu
+                    </button>
                   </div>
-                  {tenderedNum > roundedSubtotal && (
-                    <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-200">
-                      Chenji: {formatTsh(changeDue)}
+
+                  {/* Quick Addition Chips */}
+                  <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                    {[1000, 2000, 5000, 10000, 20000, 50000].map(amt => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => {
+                          const curr = parseFloat(cashTendered) || 0;
+                          setCashTendered((curr + amt).toString());
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-white border border-gray-200 hover:border-orange-300 hover:bg-orange-50 font-mono font-bold text-gray-700 transition-all cursor-pointer shadow-2xs"
+                      >
+                        +{amt.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Real-time Change Display */}
+                  {tenderedNum >= roundedSubtotal && tenderedNum > 0 && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-emerald-100/80 border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 animate-in zoom-in-95">
+                      <span className="flex items-center gap-1">
+                        <Check className="w-4 h-4 text-emerald-700" />
+                        Chenji kwa Mteja:
+                      </span>
+                      <span className="font-mono text-sm font-black text-emerald-800">
+                        {formatTsh(changeDue)}
+                      </span>
                     </div>
                   )}
+
+                  {tenderedNum > 0 && tenderedNum < roundedSubtotal && (
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-amber-100/70 border border-amber-200 rounded-xl text-xs font-bold text-amber-900">
+                      <span>Baki Inayodaiwa:</span>
+                      <span className="font-mono text-xs font-bold text-amber-800">
+                        {formatTsh(roundedSubtotal - tenderedNum)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mobile Money Reference code (M-Pesa, Tigo, Airtel) */}
+              {(paymentMethod === 'mpesa' || paymentMethod === 'tigopesa' || paymentMethod === 'airtel') && (
+                <div className="bg-gray-50 p-2.5 rounded-2xl border border-gray-200 space-y-1.5 animate-in fade-in duration-150">
+                  <label className="text-[11px] font-bold text-gray-700 block">
+                    Namba ya Kumbukumbu / Muamala (Hiari):
+                  </label>
+                  <div className="relative">
+                    <Smartphone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={e => setPaymentReference(e.target.value)}
+                      placeholder="Mf. QK8819 au Jina la Aliyetuma"
+                      className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-mono font-medium focus:border-orange-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Namba hii itahifadhiwa kwenye risiti na rekodi za mauzo ya dukani.
+                  </p>
                 </div>
               )}
 
@@ -651,12 +752,17 @@ export const PosScreen: React.FC = () => {
       </div>
 
       {/* Modal: Sell by Amount (Sukari ya 2000) */}
-      {amountModalProduct && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
+      <Modal
+        isOpen={Boolean(amountModalProduct)}
+        onClose={() => setAmountModalProduct(null)}
+        maxWidth="max-w-sm"
+      >
+        {amountModalProduct && (
+          <div className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-900 text-sm">{t.sellByAmount}</h3>
               <button
+                type="button"
                 onClick={() => setAmountModalProduct(null)}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
@@ -673,6 +779,7 @@ export const PosScreen: React.FC = () => {
               {['500', '1000', '1500', '2000', '3000', '4000', '5000', '10000'].map(amt => (
                 <button
                   key={amt}
+                  type="button"
                   onClick={() => setMoneyAmountInput(amt)}
                   className={`py-1.5 rounded-xl text-xs font-bold border transition-all ${
                     moneyAmountInput === amt
@@ -709,12 +816,14 @@ export const PosScreen: React.FC = () => {
 
             <div className="flex items-center justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setAmountModalProduct(null)}
                 className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
               >
                 {t.cancel}
               </button>
               <button
+                type="button"
                 onClick={handleAddByMoneyAmount}
                 className="px-4 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
               >
@@ -722,13 +831,17 @@ export const PosScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Modal: Low Stock Alert Warning Modal */}
-      {lowStockAlert && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-red-100 animate-in fade-in zoom-in-95">
+      <Modal
+        isOpen={Boolean(lowStockAlert)}
+        onClose={() => setLowStockAlert(null)}
+        maxWidth="max-w-sm"
+      >
+        {lowStockAlert && (
+          <div className="p-5">
             <div className="flex items-center gap-2.5 text-red-600 mb-2">
               <AlertCircle className="w-5 h-5 shrink-0" />
               <h3 className="font-extrabold text-sm text-gray-900">Onyo la Bidhaa Inayoisha!</h3>
@@ -761,12 +874,14 @@ export const PosScreen: React.FC = () => {
 
             <div className="flex items-center justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setLowStockAlert(null)}
                 className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
               >
                 Ghairi Mauzo
               </button>
               <button
+                type="button"
                 onClick={() => {
                   const alertData = lowStockAlert;
                   setLowStockAlert(null);
@@ -784,19 +899,27 @@ export const PosScreen: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Modal: Printable Receipt & WhatsApp Share */}
-      {showReceiptModal && completedSale && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 my-8">
+      <Modal
+        isOpen={showReceiptModal && Boolean(completedSale)}
+        onClose={() => {
+          setShowReceiptModal(false);
+          setCompletedSale(null);
+        }}
+        maxWidth="max-w-md"
+      >
+        {completedSale && (
+          <div className="p-5 sm:p-6">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 no-print">
               <div className="flex items-center gap-2 text-emerald-600">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="font-bold text-sm">{t.saleSuccess}</span>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowReceiptModal(false);
                   setCompletedSale(null);
@@ -810,9 +933,13 @@ export const PosScreen: React.FC = () => {
             {/* Thermal Printable Receipt Card */}
             <div className="mt-4 p-5 bg-orange-50/30 rounded-2xl border border-orange-100 font-mono text-xs text-gray-800 space-y-3">
               <div className="text-center space-y-1">
-                <h4 className="font-extrabold text-base tracking-wider text-gray-900">DUKAFLOW POS</h4>
-                <p className="text-[11px] text-gray-500">Retail Shop & General Merchants</p>
-                <p className="text-[10px] text-gray-400">Dar es Salaam, Tanzania</p>
+                <h4 className="font-extrabold text-base tracking-wider text-gray-900">
+                  {settings.storeName.toUpperCase()}
+                </h4>
+                <p className="text-[11px] text-gray-500">{settings.storeLocation}</p>
+                {settings.storePhone && (
+                  <p className="text-[10px] text-gray-400">Simu: {settings.storePhone}</p>
+                )}
               </div>
 
               <div className="border-t border-dashed border-gray-300 pt-2 space-y-1 text-[11px]">
@@ -859,9 +986,15 @@ export const PosScreen: React.FC = () => {
                   <span>Njia ya Malipo:</span>
                   <span className="capitalize font-bold">{completedSale.payment_method}</span>
                 </div>
+                {completedSale.payment_reference && (
+                  <div className="flex justify-between text-gray-700 bg-gray-50 px-1 py-0.5 rounded-sm">
+                    <span>Namba ya Muamala:</span>
+                    <span className="font-bold font-mono">{completedSale.payment_reference}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-600">
                   <span>Kiasi Kilicholipwa:</span>
-                  <span>{formatTsh(completedSale.paid_amount)}</span>
+                  <span className="font-bold text-emerald-700">{formatTsh(completedSale.paid_amount)}</span>
                 </div>
                 {completedSale.debt_amount > 0 && (
                   <div className="flex justify-between text-red-600 font-bold bg-red-50 p-1 rounded-sm">
@@ -872,15 +1005,16 @@ export const PosScreen: React.FC = () => {
               </div>
 
               <div className="text-center text-[10px] text-gray-400 pt-3 border-t border-dashed border-gray-300">
-                *** Asante sana kwa kununua nasi! Karibu tena ***
+                *** {settings.receiptFooter || 'Asante sana kwa kununua nasi! Karibu tena'} ***
               </div>
             </div>
 
             {/* Actions: Print and WhatsApp Share */}
             <div className="mt-4 flex items-center gap-2 no-print">
               <button
+                type="button"
                 onClick={() => window.print()}
-                className="flex-1 py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                className="flex-1 py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>{t.printReceipt}</span>
@@ -890,15 +1024,15 @@ export const PosScreen: React.FC = () => {
                 href={`https://wa.me/?text=${getWhatsAppReceiptText(completedSale)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 <span>WhatsApp</span>
               </a>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

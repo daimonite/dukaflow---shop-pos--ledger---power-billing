@@ -10,8 +10,10 @@ import {
   CheckCircle,
   X,
   Layers,
-  ArrowRight
+  ArrowRight,
+  AlertCircle
 } from 'lucide-react';
+import { Modal } from './Modal';
 import { formatTsh } from '../utils/translations';
 import { Purchase, Product } from '../types';
 
@@ -248,229 +250,271 @@ export const PurchasesScreen: React.FC = () => {
       </div>
 
       {/* Modal: Add New Purchase */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h3 className="font-extrabold text-base text-gray-900">Rekodi Ununuzi wa Mzigo Mpya</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Rekodi Ununuzi wa Mzigo Mpya"
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleCreatePurchase} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Msambazaji (Supplier):</label>
+              <select
+                value={selectedSupplierId}
+                onChange={e => setSelectedSupplierId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+              >
+                {suppliers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Risiti/Invoice:</label>
+              <input
+                type="text"
+                value={invoiceNo}
+                onChange={e => setInvoiceNo(e.target.value)}
+                placeholder="Mf. INV-88219"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:border-orange-500 focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          {/* Dynamic Purchase Item Rows */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-gray-700">Bidhaa Zilizomo kwenye Mzigo:</label>
+              <button
+                type="button"
+                onClick={addPurchaseRow}
+                className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Ongeza Aina Nyingine</span>
               </button>
             </div>
 
-            <form onSubmit={handleCreatePurchase} className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Msambazaji (Supplier):</label>
-                  <select
-                    value={selectedSupplierId}
-                    onChange={e => setSelectedSupplierId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                  >
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>
-                    ))}
-                  </select>
-                </div>
+            <div className="space-y-3">
+              {purchaseRows.map((row, idx) => {
+                const currentProd = products.find(p => p.id === row.productId);
+                const baseCost = row.factor > 0 ? row.unitCost / row.factor : row.unitCost;
 
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Risiti/Invoice:</label>
-                  <input
-                    type="text"
-                    value={invoiceNo}
-                    onChange={e => setInvoiceNo(e.target.value)}
-                    placeholder="Mf. INV-88219"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono focus:border-orange-500 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic Purchase Item Rows */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-gray-700">Bidhaa Zilizomo kwenye Mzigo:</label>
-                  <button
-                    type="button"
-                    onClick={addPurchaseRow}
-                    className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Ongeza Aina Nyingine</span>
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {purchaseRows.map((row, idx) => {
-                    const currentProd = products.find(p => p.id === row.productId);
-                    const baseCost = row.factor > 0 ? row.unitCost / row.factor : row.unitCost;
-
-                    return (
-                      <div key={idx} className="p-3 bg-orange-50/40 rounded-2xl border border-orange-100 space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div className="sm:col-span-1">
-                            <label className="text-[10px] font-bold text-gray-600 block">Bidhaa:</label>
-                            <select
-                              value={row.productId}
-                              onChange={e => {
-                                const newPId = e.target.value;
-                                const p = products.find(prod => prod.id === newPId);
-                                updatePurchaseRow(idx, {
-                                  productId: newPId,
-                                  unitLabel: p?.unit_options?.[0]?.label || `1 ${p?.base_unit}`,
-                                  factor: p?.unit_options?.[0]?.factor || 1,
-                                });
-                              }}
-                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
-                            >
-                              {products.map(p => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.base_unit})</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-600 block">Kipimo cha Kununua:</label>
-                            <input
-                              type="text"
-                              value={row.unitLabel}
-                              onChange={e => updatePurchaseRow(idx, { unitLabel: e.target.value })}
-                              placeholder="Mf. Gunia 50kg"
-                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-600 block">
-                              Ina Base Units Ngapi? ({currentProd?.base_unit || 'kizio'}):
-                            </label>
-                            <input
-                              type="number"
-                              value={row.factor}
-                              onChange={e => updatePurchaseRow(idx, { factor: parseFloat(e.target.value) || 1 })}
-                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white font-mono"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-600 block">Idadi Iliyonunuliwa:</label>
-                            <input
-                              type="number"
-                              value={row.qtyBought}
-                              onChange={e => updatePurchaseRow(idx, { qtyBought: parseFloat(e.target.value) || 1 })}
-                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white font-mono"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-bold text-gray-600 block">Bei kwa Kila Kipimo (TSh):</label>
-                            <input
-                              type="number"
-                              value={row.unitCost}
-                              onChange={e => updatePurchaseRow(idx, { unitCost: parseFloat(e.target.value) || 0 })}
-                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white font-mono font-bold"
-                            />
-                          </div>
-
-                          <div className="flex items-center justify-between pt-3">
-                            <div className="text-[11px] font-semibold text-orange-900">
-                              Gharama: {formatTsh(baseCost)}/{currentProd?.base_unit}
-                            </div>
-                            {purchaseRows.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removePurchaseRow(idx)}
-                                className="text-red-500 hover:text-red-700 text-xs font-bold"
-                              >
-                                Futa
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                return (
+                  <div key={idx} className="p-3 bg-orange-50/40 rounded-2xl border border-orange-100 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="sm:col-span-1">
+                        <label className="text-[10px] font-bold text-gray-600 block">Bidhaa:</label>
+                        <select
+                          value={row.productId}
+                          onChange={e => {
+                            const newPId = e.target.value;
+                            const p = products.find(prod => prod.id === newPId);
+                            updatePurchaseRow(idx, {
+                              productId: newPId,
+                              unitLabel: p?.unit_options?.[0]?.label || `1 ${p?.base_unit}`,
+                              factor: p?.unit_options?.[0]?.factor || 1,
+                            });
+                          }}
+                          className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
+                        >
+                          {products.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.base_unit})</option>
+                          ))}
+                        </select>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-600 block">Kipimo cha Kununua:</label>
+                        <input
+                          type="text"
+                          value={row.unitLabel}
+                          onChange={e => updatePurchaseRow(idx, { unitLabel: e.target.value })}
+                          placeholder="Mf. Gunia 50kg"
+                          className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-600 block">
+                          Ina Base Units Ngapi? ({currentProd?.base_unit || 'kizio'}):
+                        </label>
+                        <input
+                          type="number"
+                          value={row.factor}
+                          onChange={e => updatePurchaseRow(idx, { factor: parseFloat(e.target.value) || 1 })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-600 block">Idadi Iliyonunuliwa:</label>
+                        <input
+                          type="number"
+                          value={row.qtyBought}
+                          onChange={e => updatePurchaseRow(idx, { qtyBought: parseFloat(e.target.value) || 1 })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-600 block">Bei kwa Kila Kipimo (TSh):</label>
+                        <input
+                          type="number"
+                          value={row.unitCost}
+                          onChange={e => updatePurchaseRow(idx, { unitCost: parseFloat(e.target.value) || 0 })}
+                          className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3">
+                        <div className="text-[11px] font-semibold text-orange-900">
+                          Gharama: {formatTsh(baseCost)}/{currentProd?.base_unit}
+                        </div>
+                        {purchaseRows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePurchaseRow(idx)}
+                            className="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                          >
+                            Futa
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Payments & receipt photo */}
+          <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-200/70 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-700">Jumla Kuu ya Mzigo:</span>
+              <span className="text-base text-orange-600 font-mono font-black">{formatTsh(calculatedTotalCost)}</span>
+            </div>
+
+            {/* Quick Tender Options */}
+            <div>
+              <span className="text-[11px] font-semibold text-gray-500 block mb-1.5">Chagua jinsi ya kurekodi malipo:</span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaidAmountInput(calculatedTotalCost.toString())}
+                  className="py-1.5 px-2 bg-white hover:bg-emerald-50 border border-gray-200 rounded-xl text-xs font-bold text-emerald-800 transition-colors"
+                >
+                  Lipa Yote Taslimu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaidAmountInput(Math.round(calculatedTotalCost / 2).toString())}
+                  className="py-1.5 px-2 bg-white hover:bg-amber-50 border border-gray-200 rounded-xl text-xs font-bold text-amber-800 transition-colors"
+                >
+                  Nusu Deni (50%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaidAmountInput('0')}
+                  className="py-1.5 px-2 bg-white hover:bg-red-50 border border-gray-200 rounded-xl text-xs font-bold text-red-800 transition-colors"
+                >
+                  Mkopo Kamili
+                </button>
               </div>
+            </div>
 
-              {/* Payments & receipt photo */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">
-                    Jumla Kuu ya Mzigo: <span className="text-orange-600 font-mono font-black">{formatTsh(calculatedTotalCost)}</span>
-                  </label>
-                  <label className="text-[11px] text-gray-500 block mb-1">Kiasi Kilicholipwa Taslimu/M-Pesa (TSh):</label>
-                  <input
-                    type="number"
-                    value={paidAmountInput}
-                    onChange={e => setPaidAmountInput(e.target.value)}
-                    placeholder={calculatedTotalCost.toString()}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-bold focus:border-orange-500 focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Picha ya Risiti (Hiari):</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoUpload}
-                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-                  />
-                  {receiptImage && (
-                    <span className="text-[10px] text-emerald-600 font-bold block mt-1">Picha imepakiwa kikamilifu</span>
-                  )}
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo ya Ziada:</label>
+                <label className="text-[11px] text-gray-700 font-bold block mb-1">Kiasi Kilicholipwa Sasa (TSh):</label>
                 <input
-                  type="text"
-                  value={purchaseNote}
-                  onChange={e => setPurchaseNote(e.target.value)}
-                  placeholder="Mf. Baki 85,000 tutalipa Ijumaa baada ya mauzo"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+                  type="number"
+                  value={paidAmountInput}
+                  onChange={e => setPaidAmountInput(e.target.value)}
+                  placeholder={calculatedTotalCost.toString()}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-bold focus:border-orange-500 focus:outline-hidden bg-white"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi Mzigo
-                </button>
+              <div>
+                <label className="text-[11px] text-gray-700 font-bold block mb-1">Picha ya Risiti (Hiari):</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoUpload}
+                  className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                />
+                {receiptImage && (
+                  <span className="text-[10px] text-emerald-600 font-bold block mt-1">Picha imepakiwa kikamilifu</span>
+                )}
               </div>
-            </form>
+            </div>
+
+            {/* Live Debt Summary Banner */}
+            {calculatedTotalCost > 0 && (
+              <div className={`p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between ${
+                calculatedTotalCost - (parseFloat(paidAmountInput) || 0) > 0
+                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              }`}>
+                <span>Hali ya Malipo:</span>
+                <span>
+                  {calculatedTotalCost - (parseFloat(paidAmountInput) || 0) > 0
+                    ? `Deni la Msambazaji: ${formatTsh(calculatedTotalCost - (parseFloat(paidAmountInput) || 0))}`
+                    : 'Mzigo Umelipwa Kikamilifu (Hakuna Deni)'}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo ya Ziada (Hiari):</label>
+            <input
+              type="text"
+              value={purchaseNote}
+              onChange={e => setPurchaseNote(e.target.value)}
+              placeholder="Mf. Baki 85,000 tutalipa Ijumaa baada ya mauzo"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+            >
+              Ghairi
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
+            >
+              Hifadhi Mzigo
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modal: View Receipt Photo */}
-      {viewReceiptUrl && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-4 shadow-2xl relative">
-            <button
-              onClick={() => setViewReceiptUrl(null)}
-              className="absolute right-3 top-3 p-1.5 bg-gray-100 rounded-full hover:bg-gray-200"
-            >
-              <X className="w-5 h-5 text-gray-700" />
-            </button>
-            <h4 className="font-bold text-sm text-gray-900 mb-2">Picha ya Risiti</h4>
-            <img src={viewReceiptUrl} alt="Receipt" className="w-full max-h-[70vh] object-contain rounded-2xl" />
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={!!viewReceiptUrl}
+        onClose={() => setViewReceiptUrl(null)}
+        title="Picha ya Risiti"
+        maxWidth="max-w-lg"
+      >
+        {viewReceiptUrl && (
+          <img
+            src={viewReceiptUrl}
+            alt="Receipt"
+            className="w-full max-h-[70vh] object-contain rounded-2xl"
+          />
+        )}
+      </Modal>
     </div>
   );
 };

@@ -14,10 +14,13 @@ import {
   ChevronRight,
   X,
   CreditCard,
-  MessageSquare
+  MessageSquare,
+  Smartphone,
+  Check
 } from 'lucide-react';
 import { formatTsh } from '../utils/translations';
 import { Customer, Supplier, PaymentMethod, LedgerEntry } from '../types';
+import { Modal } from './Modal';
 
 export const DebtorsCreditorsScreen: React.FC = () => {
   const {
@@ -28,7 +31,8 @@ export const DebtorsCreditorsScreen: React.FC = () => {
     recordCustomerPayment,
     recordSupplierPayment,
     addCustomer,
-    addSupplier
+    addSupplier,
+    settings
   } = useShop();
 
   const [activeTab, setActiveTab] = useState<'debtors' | 'creditors'>('debtors');
@@ -39,11 +43,20 @@ export const DebtorsCreditorsScreen: React.FC = () => {
   const [showCustPaymentModal, setShowCustPaymentModal] = useState(false);
   const [custPaymentAmount, setCustPaymentAmount] = useState('');
   const [custPaymentMethod, setCustPaymentMethod] = useState<PaymentMethod>('cash');
+  const [custPaymentReference, setCustPaymentReference] = useState('');
   const [custPaymentNote, setCustPaymentNote] = useState('');
+  const [lastPaymentReceipt, setLastPaymentReceipt] = useState<{
+    customerName: string;
+    amount: number;
+    remaining: number;
+    method: string;
+    ref?: string;
+  } | null>(null);
 
   const [showSuppPaymentModal, setShowSuppPaymentModal] = useState(false);
   const [suppPaymentAmount, setSuppPaymentAmount] = useState('');
   const [suppPaymentMethod, setSuppPaymentMethod] = useState<PaymentMethod>('cash');
+  const [suppPaymentReference, setSuppPaymentReference] = useState('');
   const [suppPaymentNote, setSuppPaymentNote] = useState('');
 
   // Add modals
@@ -84,6 +97,12 @@ export const DebtorsCreditorsScreen: React.FC = () => {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }, [ledgerEntries, selectedSupplierId]);
 
+  // Helper: WhatsApp Debt Repayment Receipt
+  const getWhatsAppDebtPaymentReceipt = (receipt: { customerName: string; amount: number; remaining: number; method: string; ref?: string }) => {
+    const refLine = receipt.ref ? `%0A*Namba ya Muamala / Ref:* ${receipt.ref}` : '';
+    return `*${settings.storeName.toUpperCase()} - UTHIBITISHO WA MALIPO YA DENI*%0A---------------------------%0A*Mteja:* ${receipt.customerName}%0A*Kiasi Kilicholipwa:* ${formatTsh(receipt.amount)}%0A*Njia ya Malipo:* ${receipt.method.toUpperCase()}${refLine}%0A*Baki ya Deni Lako:* ${formatTsh(receipt.remaining)}%0A---------------------------%0ATarehe: ${new Date().toLocaleString()}%0AAsante sana kwa uaminifu wako! Karibu tena.`;
+  };
+
   // Customer Payment Submit
   const handleCustomerPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,15 +113,27 @@ export const DebtorsCreditorsScreen: React.FC = () => {
       return;
     }
 
+    const remaining = Math.max(0, Math.round(selectedCustomer.current_balance - amt));
+
     recordCustomerPayment(
       selectedCustomer.id,
       amt,
       custPaymentMethod,
-      custPaymentNote.trim() || undefined
+      custPaymentNote.trim() || undefined,
+      custPaymentReference.trim() || undefined
     );
+
+    setLastPaymentReceipt({
+      customerName: selectedCustomer.name,
+      amount: amt,
+      remaining,
+      method: custPaymentMethod,
+      ref: custPaymentReference.trim() || undefined,
+    });
 
     setShowCustPaymentModal(false);
     setCustPaymentAmount('');
+    setCustPaymentReference('');
     setCustPaymentNote('');
   };
 
@@ -116,15 +147,18 @@ export const DebtorsCreditorsScreen: React.FC = () => {
       return;
     }
 
+    const note = suppPaymentNote.trim() || (suppPaymentReference.trim() ? `Malipo (${suppPaymentMethod.toUpperCase()} Ref: ${suppPaymentReference.trim()})` : undefined);
+
     recordSupplierPayment(
       selectedSupplier.id,
       amt,
       suppPaymentMethod,
-      suppPaymentNote.trim() || undefined
+      note
     );
 
     setShowSuppPaymentModal(false);
     setSuppPaymentAmount('');
+    setSuppPaymentReference('');
     setSuppPaymentNote('');
   };
 
@@ -555,41 +589,143 @@ export const DebtorsCreditorsScreen: React.FC = () => {
       )}
 
       {/* Modal: Customer Payment */}
-      {showCustPaymentModal && selectedCustomer && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-1">
-              Rekodi Malipo ya Mteja
-            </h3>
-            <p className="text-xs text-gray-500 mb-3">
-              Mteja: <span className="font-bold text-gray-800">{selectedCustomer.name}</span> (Deni: {formatTsh(selectedCustomer.current_balance)})
-            </p>
-
-            <form onSubmit={handleCustomerPaymentSubmit} className="space-y-3 mb-4">
+      <Modal
+        isOpen={showCustPaymentModal && Boolean(selectedCustomer)}
+        onClose={() => setShowCustPaymentModal(false)}
+        maxWidth="max-w-md"
+      >
+        {selectedCustomer && (
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi Kilicholipwa (TSh):</label>
+                <h3 className="font-extrabold text-base text-gray-900">
+                  Rekodi Malipo ya Mteja
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Mteja: <span className="font-bold text-gray-800">{selectedCustomer.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustPaymentModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Debt Banner */}
+            <div className="bg-amber-50/80 p-3 rounded-2xl border border-amber-200 mb-4 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] text-amber-800 block font-semibold">Deni Lililopo Sasa:</span>
+                <span className="text-lg font-mono font-black text-amber-950">
+                  {formatTsh(selectedCustomer.current_balance)}
+                </span>
+              </div>
+              <span className="text-xs font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                Anadaiwa
+              </span>
+            </div>
+
+            <form onSubmit={handleCustomerPaymentSubmit} className="space-y-3.5">
+              <div>
+                <div className="flex items-center justify-between text-xs font-bold text-gray-700 mb-1">
+                  <label>Kiasi Anacholipa (TSh):</label>
+                  {custPaymentAmount && (
+                    <button
+                      type="button"
+                      onClick={() => setCustPaymentAmount('')}
+                      className="text-[10px] text-red-600 hover:underline"
+                    >
+                      Futa
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   required
                   value={custPaymentAmount}
                   onChange={e => setCustPaymentAmount(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-emerald-200 text-sm font-mono font-bold focus:border-emerald-500 focus:outline-hidden"
+                  placeholder={selectedCustomer.current_balance.toString()}
+                  className="w-full px-3 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50/20 text-base font-mono font-extrabold text-gray-900 focus:bg-white focus:border-emerald-600 focus:outline-hidden shadow-2xs"
                 />
+
+                {/* Quick Payment suggestion chips */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCustPaymentAmount(selectedCustomer.current_balance.toString())}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    Lipa Yote ({formatTsh(selectedCustomer.current_balance)})
+                  </button>
+                  {selectedCustomer.current_balance > 2000 && (
+                    <button
+                      type="button"
+                      onClick={() => setCustPaymentAmount(Math.round(selectedCustomer.current_balance / 2).toString())}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      Nusu ({formatTsh(Math.round(selectedCustomer.current_balance / 2))})
+                    </button>
+                  )}
+                  {[2000, 5000, 10000, 20000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => {
+                        const curr = parseFloat(custPaymentAmount) || 0;
+                        setCustPaymentAmount((curr + amt).toString());
+                      }}
+                      className="px-2 py-0.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                    >
+                      +{amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
               </div>
 
+              {/* Payment Method selector */}
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Njia ya Malipo:</label>
-                <select
-                  value={custPaymentMethod}
-                  onChange={e => setCustPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-emerald-500 focus:outline-hidden"
-                >
-                  <option value="cash">Taslimu (Cash)</option>
-                  <option value="mpesa">M-Pesa</option>
-                  <option value="tigopesa">Tigo Pesa</option>
-                  <option value="airtel">Airtel Money</option>
-                </select>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">Njia ya Malipo:</label>
+                <div className="grid grid-cols-4 gap-1.5 text-xs">
+                  {(['cash', 'mpesa', 'tigopesa', 'airtel'] as PaymentMethod[]).map(pm => (
+                    <button
+                      key={pm}
+                      type="button"
+                      onClick={() => setCustPaymentMethod(pm)}
+                      className={`py-2 px-1 rounded-xl font-bold text-center border transition-all cursor-pointer ${
+                        custPaymentMethod === pm
+                          ? pm === 'mpesa'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : pm === 'tigopesa'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : pm === 'airtel'
+                            ? 'bg-red-600 text-white border-red-600 shadow-xs'
+                            : 'bg-orange-600 text-white border-orange-600 shadow-xs'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {pm === 'cash' ? '💵 Cash' :
+                       pm === 'mpesa' ? '🟢 M-Pesa' :
+                       pm === 'tigopesa' ? '🔵 Tigo' : '🔴 Airtel'}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Reference Code if Mobile Money */}
+              {custPaymentMethod !== 'cash' && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 block">Namba ya Kumbukumbu / Reference (Hiari):</label>
+                  <input
+                    type="text"
+                    value={custPaymentReference}
+                    onChange={e => setCustPaymentReference(e.target.value)}
+                    placeholder="Mf. QK8819 au M-Pesa Code"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-medium focus:border-emerald-500 focus:outline-hidden"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo ya Ziada (Hiari):</label>
@@ -597,43 +733,126 @@ export const DebtorsCreditorsScreen: React.FC = () => {
                   type="text"
                   value={custPaymentNote}
                   onChange={e => setCustPaymentNote(e.target.value)}
-                  placeholder="Mf. Malipo ya nusu deni"
+                  placeholder="Mf. Malipo ya nusu deni la unga"
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-emerald-500 focus:outline-hidden"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setShowCustPaymentModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
                 >
                   Ghairi
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
+                  className="px-5 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Thibitisha Malipo
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* Modal: Supplier Payment */}
-      {showSuppPaymentModal && selectedSupplier && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-1">
-              Rekodi Malipo kwa Msambazaji
-            </h3>
-            <p className="text-xs text-gray-500 mb-3">
-              Msambazaji: <span className="font-bold text-gray-800">{selectedSupplier.name}</span> (Tunadaiwa: {formatTsh(selectedSupplier.current_balance)})
+      {/* Modal: WhatsApp Debt Repayment Receipt Acknowledgement */}
+      <Modal
+        isOpen={Boolean(lastPaymentReceipt)}
+        onClose={() => setLastPaymentReceipt(null)}
+        maxWidth="max-w-sm"
+      >
+        {lastPaymentReceipt && (
+          <div className="p-5 text-center space-y-3">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <Check className="w-6 h-6 stroke-[3]" />
+            </div>
+            <h3 className="font-extrabold text-base text-gray-900">Malipo Yamerekodiwa!</h3>
+            <p className="text-xs text-gray-500">
+              <span className="font-bold text-gray-800">{lastPaymentReceipt.customerName}</span> amelipa{' '}
+              <span className="font-bold text-emerald-700">{formatTsh(lastPaymentReceipt.amount)}</span>.
             </p>
 
-            <form onSubmit={handleSupplierPaymentSubmit} className="space-y-3 mb-4">
+            <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 text-xs space-y-1 text-left">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Njia:</span>
+                <span className="font-bold uppercase">{lastPaymentReceipt.method}</span>
+              </div>
+              {lastPaymentReceipt.ref && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Ref Code:</span>
+                  <span className="font-mono font-bold">{lastPaymentReceipt.ref}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-gray-200 pt-1 font-bold">
+                <span className="text-gray-700">Baki ya Deni:</span>
+                <span className="text-amber-700 font-mono">{formatTsh(lastPaymentReceipt.remaining)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setLastPaymentReceipt(null)}
+                className="flex-1 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Funga
+              </button>
+              <a
+                href={`https://wa.me/?text=${getWhatsAppDebtPaymentReceipt(lastPaymentReceipt)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Tuma WhatsApp</span>
+              </a>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal: Supplier Payment */}
+      <Modal
+        isOpen={showSuppPaymentModal && Boolean(selectedSupplier)}
+        onClose={() => setShowSuppPaymentModal(false)}
+        maxWidth="max-w-md"
+      >
+        {selectedSupplier && (
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+              <div>
+                <h3 className="font-extrabold text-base text-gray-900">
+                  Rekodi Malipo kwa Msambazaji
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Msambazaji: <span className="font-bold text-gray-800">{selectedSupplier.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSuppPaymentModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-red-50/80 p-3 rounded-2xl border border-red-200 mb-4 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] text-red-800 block font-semibold">Tunachodaiwa Sasa:</span>
+                <span className="text-lg font-mono font-black text-red-950">
+                  {formatTsh(selectedSupplier.current_balance)}
+                </span>
+              </div>
+              <span className="text-xs font-bold bg-red-200 text-red-900 px-2 py-0.5 rounded-full">
+                Tunadaiwa
+              </span>
+            </div>
+
+            <form onSubmit={handleSupplierPaymentSubmit} className="space-y-3.5">
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi cha Kulipa (TSh):</label>
                 <input
@@ -641,26 +860,59 @@ export const DebtorsCreditorsScreen: React.FC = () => {
                   required
                   value={suppPaymentAmount}
                   onChange={e => setSuppPaymentAmount(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-mono font-bold focus:border-red-500 focus:outline-hidden"
+                  placeholder={selectedSupplier.current_balance.toString()}
+                  className="w-full px-3 py-2.5 rounded-xl border border-red-200 text-base font-mono font-extrabold focus:border-red-500 focus:outline-hidden shadow-2xs"
                 />
+
+                {/* Quick chip to pay in full */}
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSuppPaymentAmount(selectedSupplier.current_balance.toString())}
+                    className="px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    Lipa Deni Lote ({formatTsh(selectedSupplier.current_balance)})
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Njia ya Malipo:</label>
-                <select
-                  value={suppPaymentMethod}
-                  onChange={e => setSuppPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-red-500 focus:outline-hidden"
-                >
-                  <option value="cash">Taslimu (Cash)</option>
-                  <option value="mpesa">M-Pesa</option>
-                  <option value="tigopesa">Tigo Pesa</option>
-                  <option value="airtel">Airtel Money</option>
-                </select>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">Njia ya Malipo:</label>
+                <div className="grid grid-cols-4 gap-1.5 text-xs">
+                  {(['cash', 'mpesa', 'tigopesa', 'airtel'] as PaymentMethod[]).map(pm => (
+                    <button
+                      key={pm}
+                      type="button"
+                      onClick={() => setSuppPaymentMethod(pm)}
+                      className={`py-2 px-1 rounded-xl font-bold text-center border transition-all cursor-pointer ${
+                        suppPaymentMethod === pm
+                          ? 'bg-red-600 text-white border-red-600 shadow-xs'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {pm === 'cash' ? '💵 Cash' :
+                       pm === 'mpesa' ? '🟢 M-Pesa' :
+                       pm === 'tigopesa' ? '🔵 Tigo' : '🔴 Airtel'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
+              {suppPaymentMethod !== 'cash' && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 block">Namba ya Kumbukumbu / Reference (Hiari):</label>
+                  <input
+                    type="text"
+                    value={suppPaymentReference}
+                    onChange={e => setSuppPaymentReference(e.target.value)}
+                    placeholder="Mf. QK8819 au Bank Slip Code"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-medium focus:border-red-500 focus:outline-hidden"
+                  />
+                </div>
+              )}
+
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo:</label>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo (Hiari):</label>
                 <input
                   type="text"
                   value={suppPaymentNote}
@@ -670,146 +922,170 @@ export const DebtorsCreditorsScreen: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setShowSuppPaymentModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
                 >
                   Ghairi
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-xs"
+                  className="px-5 py-2.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
                 >
                   Lipa Msambazaji
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Modal: Add Customer */}
-      {showAddCustModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-3">Ongeza Mteja Mpya</h3>
-            <form onSubmit={handleAddCustomerSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Jina Kamili:</label>
-                <input
-                  type="text"
-                  required
-                  value={newCustName}
-                  onChange={e => setNewCustName(e.target.value)}
-                  placeholder="Mf. Mama Junior au Mzee Ally"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Simu:</label>
-                <input
-                  type="text"
-                  value={newCustPhone}
-                  onChange={e => setNewCustPhone(e.target.value)}
-                  placeholder="0754 112 233"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Kikomo cha Kukopa (TSh):</label>
-                <input
-                  type="number"
-                  value={newCustLimit}
-                  onChange={e => setNewCustLimit(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono font-bold focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="reg_cust"
-                  checked={newCustIsRegular}
-                  onChange={e => setNewCustIsRegular(e.target.checked)}
-                  className="accent-orange-500"
-                />
-                <label htmlFor="reg_cust" className="text-xs text-gray-700 font-semibold cursor-pointer">
-                  Mteja wa Kawaida (Ataonekana kwenye POS kwa kugonga mara moja)
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddCustModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi Mteja
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showAddCustModal}
+        onClose={() => setShowAddCustModal(false)}
+        maxWidth="max-w-md"
+      >
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+            <h3 className="font-extrabold text-base text-gray-900">Ongeza Mteja Mpya</h3>
+            <button
+              type="button"
+              onClick={() => setShowAddCustModal(false)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+
+          <form onSubmit={handleAddCustomerSubmit} className="space-y-3.5">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Jina Kamili:</label>
+              <input
+                type="text"
+                required
+                value={newCustName}
+                onChange={e => setNewCustName(e.target.value)}
+                placeholder="Mf. Mama Junior au Mzee Ally"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Simu:</label>
+              <input
+                type="text"
+                value={newCustPhone}
+                onChange={e => setNewCustPhone(e.target.value)}
+                placeholder="0754 112 233"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Kikomo cha Kukopa (TSh):</label>
+              <input
+                type="number"
+                value={newCustLimit}
+                onChange={e => setNewCustLimit(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-mono font-bold focus:border-orange-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="reg_cust"
+                checked={newCustIsRegular}
+                onChange={e => setNewCustIsRegular(e.target.checked)}
+                className="accent-orange-500 rounded-sm"
+              />
+              <label htmlFor="reg_cust" className="text-xs text-gray-700 font-semibold cursor-pointer">
+                Mteja wa Kawaida (Ataonekana kwenye POS kwa kugonga mara moja)
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowAddCustModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Ghairi
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Hifadhi Mteja
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </Modal>
 
       {/* Modal: Add Supplier */}
-      {showAddSuppModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-3">Ongeza Msambazaji Mpya</h3>
-            <form onSubmit={handleAddSupplierSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Jina la Duka/Msambazaji:</label>
-                <input
-                  type="text"
-                  required
-                  value={newSuppName}
-                  onChange={e => setNewSuppName(e.target.value)}
-                  placeholder="Mf. Azam Wholesale au Kibo Traders"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Simu:</label>
-                <input
-                  type="text"
-                  value={newSuppPhone}
-                  onChange={e => setNewSuppPhone(e.target.value)}
-                  placeholder="0715 000 111"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddSuppModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi Msambazaji
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showAddSuppModal}
+        onClose={() => setShowAddSuppModal(false)}
+        maxWidth="max-w-md"
+      >
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+            <h3 className="font-extrabold text-base text-gray-900">Ongeza Msambazaji Mpya</h3>
+            <button
+              type="button"
+              onClick={() => setShowAddSuppModal(false)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+
+          <form onSubmit={handleAddSupplierSubmit} className="space-y-3.5">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Jina la Duka/Msambazaji:</label>
+              <input
+                type="text"
+                required
+                value={newSuppName}
+                onChange={e => setNewSuppName(e.target.value)}
+                placeholder="Mf. Azam Wholesale au Kibo Traders"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Namba ya Simu:</label>
+              <input
+                type="text"
+                value={newSuppPhone}
+                onChange={e => setNewSuppPhone(e.target.value)}
+                placeholder="0715 000 111"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowAddSuppModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Ghairi
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Hifadhi Msambazaji
+              </button>
+            </div>
+          </form>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

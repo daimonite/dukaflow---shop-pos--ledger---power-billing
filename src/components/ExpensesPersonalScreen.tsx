@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { formatTsh, formatQty } from '../utils/translations';
 import { Expense, ExpenseCategory, OwnerDrawing } from '../types';
+import { Modal } from './Modal';
 
 export const ExpensesPersonalScreen: React.FC = () => {
   const {
@@ -307,191 +308,191 @@ export const ExpensesPersonalScreen: React.FC = () => {
       )}
 
       {/* Modal: Add Expense */}
-      {showExpenseModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-3">{t.addExpense}</h3>
-            <form onSubmit={handleExpenseSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Matumizi ni ya nini?:</label>
-                <input
-                  type="text"
-                  required
-                  value={spentOn}
-                  onChange={e => setSpentOn(e.target.value)}
-                  placeholder="Mf. Mifuko ya nailoni, Nauli, Umeme"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
+      <Modal
+        isOpen={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        title={t.addExpense}
+        maxWidth="max-w-sm"
+      >
+        <form onSubmit={handleExpenseSubmit} className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Matumizi ni ya nini?:</label>
+            <input
+              type="text"
+              required
+              value={spentOn}
+              onChange={e => setSpentOn(e.target.value)}
+              placeholder="Mf. Mifuko ya nailoni, Nauli, Umeme"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+            />
+          </div>
 
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Kundi la Matumizi:</label>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value as ExpenseCategory)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+            >
+              <option value="packaging">Mifuko / Vifungashio</option>
+              <option value="transport">Nauli / Usafiri</option>
+              <option value="rent">Kodi ya Fremu</option>
+              <option value="wages">Posho / Mshahara</option>
+              <option value="electricity_shop">Umeme wa Duka</option>
+              <option value="maintenance">Matengenezo</option>
+              <option value="taxes_licenses">Ushuru / Leseni</option>
+              <option value="other">Matumizi Mengineyo</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi cha Pesa (TSh):</label>
+            <input
+              type="number"
+              required
+              value={amountInput}
+              onChange={e => setAmountInput(e.target.value)}
+              placeholder="5000"
+              className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-mono font-bold focus:border-red-500 focus:outline-hidden"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo ya Ziada (Hiari):</label>
+            <input
+              type="text"
+              value={expenseNote}
+              onChange={e => setExpenseNote(e.target.value)}
+              placeholder="Mf. Bando 2 za mifuko Kariakoo"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowExpenseModal(false)}
+              className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+            >
+              Ghairi
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
+            >
+              Hifadhi Matumizi
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Add Personal Use */}
+      <Modal
+        isOpen={showPersonalModal}
+        onClose={() => setShowPersonalModal(false)}
+        title={t.addPersonalUse}
+        maxWidth="max-w-sm"
+      >
+        <p className="text-[11px] text-gray-500 mb-3">
+          Inapunguza stoo kwa bei ya gharama bila kuharibu faida halisi ya duka.
+        </p>
+
+        <form onSubmit={handlePersonalSubmit} className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Aina ya Kuchukua:</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPersonalType('product')}
+                className={`py-1.5 rounded-xl text-xs font-bold border ${
+                  personalType === 'product' ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 border-gray-200 text-gray-700'
+                }`}
+              >
+                Bidhaa Dukani
+              </button>
+              <button
+                type="button"
+                onClick={() => setPersonalType('cash')}
+                className={`py-1.5 rounded-xl text-xs font-bold border ${
+                  personalType === 'cash' ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 border-gray-200 text-gray-700'
+                }`}
+              >
+                Pesa Taslimu
+              </button>
+            </div>
+          </div>
+
+          {personalType === 'product' ? (
+            <>
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Kundi la Matumizi:</label>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Chagua Bidhaa:</label>
                 <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value as ExpenseCategory)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
+                  value={personalProductId}
+                  onChange={e => setPersonalProductId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
                 >
-                  <option value="packaging">Mifuko / Vifungashio</option>
-                  <option value="transport">Nauli / Usafiri</option>
-                  <option value="rent">Kodi ya Fremu</option>
-                  <option value="wages">Posho / Mshahara</option>
-                  <option value="electricity_shop">Umeme wa Duka</option>
-                  <option value="maintenance">Matengenezo</option>
-                  <option value="taxes_licenses">Ushuru / Leseni</option>
-                  <option value="other">Matumizi Mengineyo</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} (Stoo: {p.stock_qty} {p.base_unit} @ {formatTsh(p.avg_cost)})
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi cha Pesa (TSh):</label>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi Kilichochukuliwa:</label>
                 <input
                   type="number"
+                  step="0.001"
                   required
-                  value={amountInput}
-                  onChange={e => setAmountInput(e.target.value)}
-                  placeholder="5000"
-                  className="w-full px-3 py-2 rounded-xl border border-red-200 text-sm font-mono font-bold focus:border-red-500 focus:outline-hidden"
+                  value={personalQty}
+                  onChange={e => setPersonalQty(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-blue-200 text-xs font-mono font-bold focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
+            </>
+          ) : (
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi cha Pesa (TSh):</label>
+              <input
+                type="number"
+                required
+                value={personalCashAmount}
+                onChange={e => setPersonalCashAmount(e.target.value)}
+                placeholder="20000"
+                className="w-full px-3 py-2 rounded-xl border border-blue-200 text-sm font-mono font-bold focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+          )}
 
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo ya Ziada (Hiari):</label>
-                <input
-                  type="text"
-                  value={expenseNote}
-                  onChange={e => setExpenseNote(e.target.value)}
-                  placeholder="Mf. Bando 2 za mifuko Kariakoo"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-orange-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowExpenseModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi Matumizi
-                </button>
-              </div>
-            </form>
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo:</label>
+            <input
+              type="text"
+              value={personalNote}
+              onChange={e => setPersonalNote(e.target.value)}
+              placeholder="Mf. Sukari 2kg kwa ajili ya chai nyumbani"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
+            />
           </div>
-        </div>
-      )}
 
-      {/* Modal: Add Personal Use */}
-      {showPersonalModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
-            <h3 className="font-extrabold text-sm text-gray-900 mb-1">{t.addPersonalUse}</h3>
-            <p className="text-[11px] text-gray-500 mb-3">
-              Inapunguza stoo kwa bei ya gharama bila kuharibu faida halisi ya duka.
-            </p>
-
-            <form onSubmit={handlePersonalSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Aina ya Kuchukua:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPersonalType('product')}
-                    className={`py-1.5 rounded-xl text-xs font-bold border ${
-                      personalType === 'product' ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 border-gray-200 text-gray-700'
-                    }`}
-                  >
-                    Bidhaa Dukani
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPersonalType('cash')}
-                    className={`py-1.5 rounded-xl text-xs font-bold border ${
-                      personalType === 'cash' ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 border-gray-200 text-gray-700'
-                    }`}
-                  >
-                    Pesa Taslimu
-                  </button>
-                </div>
-              </div>
-
-              {personalType === 'product' ? (
-                <>
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 block mb-1">Chagua Bidhaa:</label>
-                    <select
-                      value={personalProductId}
-                      onChange={e => setPersonalProductId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
-                    >
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (Stoo: {p.stock_qty} {p.base_unit} @ {formatTsh(p.avg_cost)})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi Kilichochukuliwa:</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      required
-                      value={personalQty}
-                      onChange={e => setPersonalQty(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-blue-200 text-xs font-mono font-bold focus:border-blue-500 focus:outline-hidden"
-                    />
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Kiasi cha Pesa (TSh):</label>
-                  <input
-                    type="number"
-                    required
-                    value={personalCashAmount}
-                    onChange={e => setPersonalCashAmount(e.target.value)}
-                    placeholder="20000"
-                    className="w-full px-3 py-2 rounded-xl border border-blue-200 text-sm font-mono font-bold focus:border-blue-500 focus:outline-hidden"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Maelezo:</label>
-                <input
-                  type="text"
-                  value={personalNote}
-                  onChange={e => setPersonalNote(e.target.value)}
-                  placeholder="Mf. Sukari 2kg kwa ajili ya chai nyumbani"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPersonalModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
-                >
-                  Ghairi
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
-                >
-                  Hifadhi
-                </button>
-              </div>
-            </form>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowPersonalModal(false)}
+              className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+            >
+              Ghairi
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
+            >
+              Hifadhi
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </div>
   );
 };

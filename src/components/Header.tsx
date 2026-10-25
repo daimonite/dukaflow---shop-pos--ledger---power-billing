@@ -46,6 +46,7 @@ export const Header: React.FC<{
     t,
     currentRole,
     currentUser,
+    settings,
     sales,
     auditLogs,
     cashRegister,
@@ -103,8 +104,8 @@ export const Header: React.FC<{
                 <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight text-gray-900">
                   Duka<span className="text-orange-600">Smart</span>
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full">
-                  Neema Duka
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                  {settings.storeName.split(' ')[0] || 'Duka'}
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -115,7 +116,7 @@ export const Header: React.FC<{
                 <span className="sm:hidden font-bold text-orange-700 mr-1">
                   {currentScreen.emoji} {language === 'sw' ? currentScreen.sw : currentScreen.en} ·
                 </span>
-                <span className="hidden sm:inline">Neema Super Duka · Arusha · </span>
+                <span className="hidden sm:inline">{settings.storeName} · {settings.storeLocation} · </span>
                 {t.appSubtitle}
               </p>
             </div>

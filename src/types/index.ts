@@ -40,6 +40,16 @@ export interface SaleItem {
 
 export type PaymentMethod = 'cash' | 'mpesa' | 'tigopesa' | 'airtel' | 'credit';
 
+export interface ShopSettings {
+  storeName: string;
+  storeLocation: string;
+  storePhone?: string;
+  adminName: string;
+  adminPin: string;
+  managerName: string;
+  receiptFooter?: string;
+}
+
 export interface Sale {
   id: string;
   receipt_no: string;
@@ -52,6 +62,7 @@ export interface Sale {
   paid_amount: number;
   debt_amount: number;
   payment_method: PaymentMethod;
+  payment_reference?: string; // e.g. M-Pesa receipt code
   created_by: string;        // 'Admin' or 'Manager (Family Member)'
   sold_by_name: string;
   voided_at?: string;
@@ -147,6 +158,8 @@ export interface LedgerEntry {
   amount: number;
   ref_sale_id?: string;
   ref_purchase_id?: string;
+  payment_method?: PaymentMethod;
+  payment_reference?: string;
   items_summary?: string;
   note?: string;
   created_at: string;

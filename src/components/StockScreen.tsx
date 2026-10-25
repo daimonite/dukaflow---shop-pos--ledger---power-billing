@@ -41,7 +41,8 @@ export const StockScreen: React.FC = () => {
     adjustStock,
     addPurchase,
     addOwnerDrawing,
-    currentRole
+    currentRole,
+    settings
   } = useShop();
 
   const { openOutbox, pendingCount, isOnline } = useSync();
@@ -386,7 +387,7 @@ export const StockScreen: React.FC = () => {
                 </h1>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span className="truncate font-medium">Neema Super Duka · Arusha</span>
+                <span className="truncate font-medium">{settings.storeName} · {settings.storeLocation}</span>
                 <span className="font-semibold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded-full text-[10px]">
                   Mtandaoni
                 </span>

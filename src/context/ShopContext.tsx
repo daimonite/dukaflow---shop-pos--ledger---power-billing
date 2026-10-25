@@ -16,7 +16,8 @@ import {
   LedgerEntry,
   UserRole,
   SaleItem,
-  PaymentMethod
+  PaymentMethod,
+  ShopSettings
 } from '../types';
 import {
   initialProducts,
@@ -45,6 +46,10 @@ interface ShopContextType {
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
   currentUser: { name: string; role: UserRole };
+  
+  // Store Settings & Config
+  settings: ShopSettings;
+  updateSettings: (newSettings: Partial<ShopSettings>) => void;
   
   // Data
   products: Product[];
@@ -76,6 +81,7 @@ interface ShopContextType {
     customerPhone?: string;
     paymentMethod: PaymentMethod;
     paidAmount: number;
+    paymentReference?: string;
   }) => Sale;
   
   voidSale: (saleId: string, reason: string) => void;
@@ -109,7 +115,7 @@ interface ShopContextType {
   }) => void;
   
   addCustomer: (customer: Omit<Customer, 'id' | 'current_balance'>) => void;
-  recordCustomerPayment: (customerId: string, amount: number, paymentMethod: PaymentMethod, note?: string) => void;
+  recordCustomerPayment: (customerId: string, amount: number, paymentMethod: PaymentMethod, note?: string, reference?: string) => void;
   
   addSupplier: (supplier: Omit<Supplier, 'id' | 'current_balance'>) => void;
   recordSupplierPayment: (supplierId: string, amount: number, paymentMethod: PaymentMethod, note?: string) => void;
@@ -126,6 +132,7 @@ interface ShopContextType {
   openNewDayRegister: (openingCash: number, notes?: string) => void;
   
   // Utility & Backup
+  clearDemoTransactions: () => void;
   resetToDefaultData: () => void;
   exportDatabaseJSON: () => void;
   exportSalesCSV: () => void;
@@ -136,12 +143,36 @@ const ShopContext = createContext<ShopContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'dukeflow_app_state_v1';
 
+export const defaultSettings: ShopSettings = {
+  storeName: 'DukaSmart Super Duka',
+  storeLocation: 'Arusha, Tanzania',
+  storePhone: '+255 754 000 000',
+  adminName: 'Kelvin',
+  adminPin: '1234',
+  managerName: 'Baraka',
+  receiptFooter: 'Asante kwa kununua nasi! Karibu tena.'
+};
+
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>(() => {
     return (localStorage.getItem('dukeflow_lang') as Language) || 'sw';
   });
   
   const [currentRole, setCurrentRole] = useState<UserRole>('admin');
+
+  // Configurable Shop Settings
+  const [settings, setSettings] = useState<ShopSettings>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}_settings`);
+    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_settings`, JSON.stringify(settings));
+  }, [settings]);
+
+  const updateSettings = (newSettings: Partial<ShopSettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
+  };
 
   // Core state collections initialized from localStorage or seed data
   const [products, setProducts] = useState<Product[]>(() => {
@@ -276,7 +307,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [cashRegister]);
 
   const currentUser = {
-    name: currentRole === 'admin' ? 'Kelvin (Admin)' : currentRole === 'manager' ? 'Baraka (Manager)' : 'Power Committee',
+    name: currentRole === 'admin'
+      ? `${settings.adminName || 'Admin'} (Admin)`
+      : currentRole === 'manager'
+      ? `${settings.managerName || 'Manager'} (Manager)`
+      : 'Power Committee',
     role: currentRole
   };
 
@@ -301,7 +336,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     customerName,
     customerPhone,
     paymentMethod,
-    paidAmount
+    paidAmount,
+    paymentReference
   }) => {
     const nowIso = new Date().toISOString();
     const dateCode = nowIso.slice(0, 10).replace(/-/g, '');
@@ -312,8 +348,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const processedItems: SaleItem[] = inputItems.map(item => {
       const prod = products.find(p => p.id === item.productId);
       const costSnapshot = prod ? prod.avg_cost : 0;
-      const lineTotal = item.qty * item.unitPrice;
-      const lineCost = item.qty * costSnapshot;
+      const lineTotal = Math.round(item.qty * item.unitPrice);
+      const lineCost = Math.round(item.qty * costSnapshot);
       const lineProfit = lineTotal - lineCost;
 
       return {
@@ -345,6 +381,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       paid_amount: paidAmount,
       debt_amount: debtAmount,
       payment_method: paymentMethod,
+      payment_reference: paymentReference?.trim() || undefined,
       created_by: currentRole,
       sold_by_name: currentUser.name,
     };
@@ -829,13 +866,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     customerId,
     amount,
     paymentMethod,
-    note
+    note,
+    reference
   ) => {
     const cust = customers.find(c => c.id === customerId);
     if (!cust) return;
 
+    const roundedAmount = Math.round(amount);
     const nowIso = new Date().toISOString();
-    const newBal = cust.current_balance - amount;
+    const newBal = Math.round(cust.current_balance - roundedAmount);
 
     setCustomers(prev =>
       prev.map(c => (c.id === customerId ? { ...c, current_balance: newBal } : c))
@@ -847,8 +886,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       party_id: customerId,
       party_name: cust.name,
       direction: 'credit', // credit customer account (reduces what they owe)
-      amount,
-      note: note || `Malipo ya deni kupitia ${paymentMethod}`,
+      amount: roundedAmount,
+      payment_method: paymentMethod,
+      payment_reference: reference?.trim() || undefined,
+      note: note || (reference ? `Malipo ya deni (${paymentMethod.toUpperCase()} Ref: ${reference})` : `Malipo ya deni kupitia ${paymentMethod}`),
       created_at: nowIso,
       created_by: currentUser.name,
     };
@@ -1215,6 +1256,48 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // 12. Backup & Export
+  const clearDemoTransactions = () => {
+    setSales([]);
+    setPurchases([]);
+    setExpenses([]);
+    setOwnerDrawings([]);
+    setLedgerEntries([]);
+    setCustomers(prev => prev.map(c => ({ ...c, current_balance: 0 })));
+    setSuppliers(prev => prev.map(s => ({ ...s, current_balance: 0 })));
+    setPowerPayments([]);
+    setMeterReadings(prev => prev.map(r => ({
+      ...r,
+      carried_forward_debt: 0,
+      paid_amount: 0,
+      closing_balance: r.current_charge,
+      status: r.current_charge === 0 ? 'paid' : 'unpaid'
+    })));
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const freshRegister: CashRegisterSession = {
+      id: `reg-${Date.now()}`,
+      date: todayStr,
+      opened_at: new Date().toISOString(),
+      opening_cash: cashRegister.opening_cash || 50000,
+      cash_sales: 0,
+      cash_debt_payments: 0,
+      cash_expenses: 0,
+      cash_owner_drawings: 0,
+      expected_closing: cashRegister.opening_cash || 50000,
+      status: 'open',
+      notes: 'Kuanza upya baada ya kufuta data za majaribio'
+    };
+    setCashRegister(freshRegister);
+
+    addAuditEntry({
+      table_name: 'system',
+      record_id: 'data_wipe',
+      action: 'STOCKTAKE',
+      reason: 'Kufuta data za majaribio (Kuanza upya rekodi za duka)',
+      severity: 'alert'
+    });
+  };
+
   const resetToDefaultData = () => {
     setProducts(initialProducts);
     setCustomers(initialCustomers);
@@ -1230,12 +1313,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPowerPayments(initialPowerPayments);
     setAuditLogs(initialAuditLogs);
     setCashRegister(initialCashRegister);
-    localStorage.clear();
+    setSettings(defaultSettings);
+
+    // Clean specific storage keys
+    const keys = [
+      'products', 'customers', 'suppliers', 'sales', 'purchases',
+      'expenses', 'owner_drawings', 'ledger_entries', 'power_members',
+      'power_periods', 'meter_readings', 'power_payments', 'audit_logs',
+      'cash_register', 'settings'
+    ];
+    keys.forEach(k => localStorage.removeItem(`${STORAGE_KEY}_${k}`));
   };
 
   const exportDatabaseJSON = () => {
     const fullBackup = {
       exported_at: new Date().toISOString(),
+      settings,
       products,
       customers,
       suppliers,
@@ -1261,7 +1354,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const exportSalesCSV = () => {
-    const headers = ['Receipt No', 'Date', 'Customer', 'Items', 'Total (TSh)', 'Paid (TSh)', 'Debt (TSh)', 'Method', 'Sold By'];
+    const headers = ['Receipt No', 'Date', 'Customer', 'Items', 'Total (TSh)', 'Paid (TSh)', 'Debt (TSh)', 'Method', 'Reference', 'Sold By'];
     const rows = sales.map(s => [
       s.receipt_no,
       new Date(s.sold_at).toLocaleString(),
@@ -1271,6 +1364,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       s.paid_amount,
       s.debt_amount,
       s.payment_method,
+      s.payment_reference || '',
       s.sold_by_name,
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -1322,6 +1416,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentRole,
         setCurrentRole,
         currentUser,
+        settings,
+        updateSettings,
         products,
         customers,
         suppliers,
@@ -1355,6 +1451,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         closePowerPeriodAndRollOver,
         closeDayRegister,
         openNewDayRegister,
+        clearDemoTransactions,
         resetToDefaultData,
         exportDatabaseJSON,
         exportSalesCSV,

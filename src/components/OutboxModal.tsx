@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSync } from '../context/SyncContext';
 import {
   Cloud,
@@ -93,8 +94,8 @@ export const OutboxModal: React.FC = () => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-orange-100 overflow-hidden">
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-orange-100 flex items-center justify-between bg-gradient-to-r from-orange-50/80 via-white to-amber-50/80">
@@ -386,6 +387,7 @@ export const OutboxModal: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
