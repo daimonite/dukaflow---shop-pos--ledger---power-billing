@@ -21,6 +21,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { formatTsh } from '../utils/translations';
+import { shopDateKey } from '../utils/shopTime';
 
 const SCREEN_LABELS: Record<string, { sw: string; en: string; emoji: string }> = {
   pos:       { sw: 'Mauzo ya Haraka',      en: 'Quick POS Sale',         emoji: '🛒' },
@@ -63,8 +64,8 @@ export const Header: React.FC<{
   const currentScreen = SCREEN_LABELS[activeTab] || SCREEN_LABELS.pos;
 
   // Compute today's metrics
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todaySalesList = sales.filter(s => !s.voided_at && s.sold_at.startsWith(todayStr));
+  const todayStr = shopDateKey();
+  const todaySalesList = sales.filter(s => !s.voided_at && shopDateKey(s.sold_at) === todayStr);
   const todayRevenue = todaySalesList.reduce((sum, s) => sum + s.total, 0);
   const todayProfit = todaySalesList.reduce((sum, s) => sum + s.items.reduce((acc, i) => acc + i.line_profit, 0), 0);
 
@@ -83,7 +84,7 @@ export const Header: React.FC<{
         <div className="flex items-center justify-between gap-3">
           
           {/* Hamburger + Brand Logo & Name */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             {/* Hamburger menu button (opens sidebar) */}
             <button
               onClick={onMenuClick}
@@ -94,17 +95,13 @@ export const Header: React.FC<{
               <Menu className="w-4 h-4 text-orange-600" />
               <span className="font-extrabold text-[11px] uppercase tracking-wider hidden sm:inline text-orange-900">Menyu</span>
             </button>
-            <img
-              src="https://lh3.googleusercontent.com/aida/AEtjO1WqfVNZWOzPRUIq-IOOGmS4dWIh3bgUArKpuvKcxbiupsXxZq7kl2bcdiTcGM59kBT14Wj0UYum6q4zSjWOAUbLQVifeeSGnMAZEK87ipqiT4nbsMKk9NcfRKUXF696hmS0X_-PjrDE_INa3qnPjC6477PIIH--Ggp2gXo-MlTm9q5CNkAItcbV7BZ9Uzx6PGnAD7tX04njAd_PVzKMD7HobdIJYg03Mf3CGhEkmvt9EQJ2ipUSyICEAHA"
-              alt="DukaSmart Logo"
-              className="h-8 w-auto object-contain flex-shrink-0"
-            />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight text-gray-900">
+            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-orange-500 to-orange-700 text-white flex items-center justify-center shadow-xs flex-shrink-0" aria-hidden="true"><Store className="w-4.5 h-4.5" /></div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-display font-extrabold text-base sm:text-xl tracking-tight text-gray-900 truncate">
                   Duka<span className="text-orange-600">Smart</span>
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
                   {settings.storeName.split(' ')[0] || 'Duka'}
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded-full">
@@ -112,7 +109,7 @@ export const Header: React.FC<{
                   Mtandaoni
                 </span>
               </div>
-              <p className="text-[11px] text-gray-500 truncate max-w-[200px] sm:max-w-xs font-medium">
+              <p className="text-[11px] text-gray-500 truncate font-medium">
                 <span className="sm:hidden font-bold text-orange-700 mr-1">
                   {currentScreen.emoji} {language === 'sw' ? currentScreen.sw : currentScreen.en} ·
                 </span>
@@ -159,7 +156,7 @@ export const Header: React.FC<{
           </div>
 
           {/* Action buttons: Role, Language, Notifications, Sync/Outbox */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
             {/* Sync & Outbox Status Indicator */}
             <button
@@ -215,7 +212,7 @@ export const Header: React.FC<{
               title="Badili Lugha / Switch Language"
             >
               <Globe className="w-3.5 h-3.5" />
-              <span className="uppercase">{language}</span>
+              <span className="uppercase hidden sm:inline">{language}</span>
             </button>
 
             {/* Audit Notifications Bell */}
@@ -235,7 +232,7 @@ export const Header: React.FC<{
 
               {/* Notification dropdown */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50">
+                <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                     <span className="font-bold text-xs text-gray-800">Arifa Muhimu za Mfumo (Audit)</span>
                     <button
@@ -286,7 +283,7 @@ export const Header: React.FC<{
               ) : (
                 <Zap className="w-3.5 h-3.5 text-blue-600" />
               )}
-              <span className="capitalize">{currentRole === 'admin' ? 'Admin' : currentRole === 'manager' ? 'Meneja' : 'Umeme'}</span>
+              <span className="capitalize hidden sm:inline">{currentRole === 'admin' ? 'Admin' : currentRole === 'manager' ? 'Meneja' : 'Umeme'}</span>
               <ChevronDown className="w-3 h-3 text-gray-400" />
             </button>
           </div>

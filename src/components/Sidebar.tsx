@@ -22,6 +22,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { formatTsh } from '../utils/translations';
+import { shopDateKey } from '../utils/shopTime';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -51,12 +52,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onClose, on
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = React.useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = shopDateKey();
   const todayRevenue = sales
-    .filter(s => !s.voided_at && s.sold_at.startsWith(todayStr))
+    .filter(s => !s.voided_at && shopDateKey(s.sold_at) === todayStr)
     .reduce((sum, s) => sum + s.total, 0);
   const todayProfit = sales
-    .filter(s => !s.voided_at && s.sold_at.startsWith(todayStr))
+    .filter(s => !s.voided_at && shopDateKey(s.sold_at) === todayStr)
     .reduce((sum, s) => sum + s.items.reduce((a, i) => a + i.line_profit, 0), 0);
 
   const lowStockCount  = products.filter(p => p.stock_qty <= p.reorder_level).length;

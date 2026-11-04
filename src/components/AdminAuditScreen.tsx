@@ -76,11 +76,11 @@ export const AdminAuditScreen: React.FC = () => {
     updateSettings({
       storeName: storeName.trim(),
       storeLocation: storeLocation.trim(),
-      storePhone: storePhone.trim(),
+      storePhone: (storePhone ?? '').trim(),
       adminName: adminName.trim(),
       adminPin: adminPin.trim(),
       managerName: managerName.trim(),
-      receiptFooter: receiptFooter.trim(),
+      receiptFooter: (receiptFooter ?? '').trim(),
     });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 3000);

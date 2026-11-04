@@ -29,6 +29,7 @@ import {
   Legend,
   CartesianGrid
 } from 'recharts';
+import { shopDateKey } from '../utils/shopTime';
 
 export const AnalyticsScreen: React.FC = () => {
   const {
@@ -51,14 +52,14 @@ export const AnalyticsScreen: React.FC = () => {
     for (let i = 13; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const isoKey = d.toISOString().split('T')[0];
+      const isoKey = shopDateKey(d);
       const displayDate = d.toLocaleDateString('sw-TZ', { month: 'short', day: 'numeric' });
       map.set(isoKey, { date: isoKey, displayDate, revenue: 0, profit: 0 });
     }
 
     sales.forEach(sale => {
       if (sale.voided_at) return;
-      const key = sale.sold_at.split('T')[0];
+      const key = shopDateKey(sale.sold_at);
       if (map.has(key)) {
         const entry = map.get(key)!;
         entry.revenue += sale.total;
