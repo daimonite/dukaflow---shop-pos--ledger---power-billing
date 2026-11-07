@@ -37,6 +37,7 @@ import {
 } from '../data/seedData';
 import { Language, translations, formatTsh } from '../utils/translations';
 import { syncService } from '../services/syncService';
+import { shopDateKey } from '../utils/shopTime';
 
 interface ShopContextType {
   // Localization & Role
@@ -1238,7 +1239,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const openNewDayRegister: ShopContextType['openNewDayRegister'] = (openingCash, notes) => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = shopDateKey();
     const newSession: CashRegisterSession = {
       id: `reg-${Date.now()}`,
       date: todayStr,
@@ -1273,7 +1274,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: r.current_charge === 0 ? 'paid' : 'unpaid'
     })));
     
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = shopDateKey();
     const freshRegister: CashRegisterSession = {
       id: `reg-${Date.now()}`,
       date: todayStr,

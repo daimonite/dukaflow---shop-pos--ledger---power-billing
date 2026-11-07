@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { formatTsh, formatQty } from '../utils/translations';
 import { Sale, Product, Expense } from '../types';
+import { shopDateKey } from '../utils/shopTime';
 
 export const CalendarScreen: React.FC = () => {
   const {
@@ -51,7 +52,7 @@ export const CalendarScreen: React.FC = () => {
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDayStr, setSelectedDayStr] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0];
+    return shopDateKey();
   });
   const [voidModalSale, setVoidModalSale] = useState<Sale | null>(null);
   const [voidReason, setVoidReason] = useState('');
@@ -92,7 +93,7 @@ export const CalendarScreen: React.FC = () => {
     
     sales.forEach(sale => {
       if (sale.voided_at) return; // skip voided
-      const dayKey = sale.sold_at.split('T')[0];
+      const dayKey = shopDateKey(sale.sold_at);
       const profit = sale.items.reduce((sum, item) => sum + item.line_profit, 0);
 
       const existing = map.get(dayKey) || { total: 0, profit: 0, count: 0, sales: [] };
@@ -109,7 +110,7 @@ export const CalendarScreen: React.FC = () => {
   // Monthly summary metrics
   const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthSales = useMemo(() => {
-    return sales.filter(s => !s.voided_at && s.sold_at.startsWith(monthPrefix));
+    return sales.filter(s => !s.voided_at && shopDateKey(s.sold_at).startsWith(monthPrefix));
   }, [sales, monthPrefix]);
 
   const monthlyTotalRevenue = monthSales.reduce((sum, s) => sum + s.total, 0);
@@ -119,9 +120,9 @@ export const CalendarScreen: React.FC = () => {
   );
 
   // Today specific calculations
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = shopDateKey();
   const todaySales = useMemo(() => {
-    return sales.filter(s => !s.voided_at && s.sold_at.startsWith(todayStr));
+    return sales.filter(s => !s.voided_at && shopDateKey(s.sold_at) === todayStr);
   }, [sales, todayStr]);
 
   const todayRevenue = todaySales.reduce((sum, s) => sum + s.total, 0);
@@ -131,10 +132,10 @@ export const CalendarScreen: React.FC = () => {
   );
   const todayGrossMargin = todayRevenue > 0 ? (todayGrossProfit / todayRevenue) * 100 : 0;
 
-  const todayExpensesList = expenses.filter(e => e.date.startsWith(todayStr));
+  const todayExpensesList = expenses.filter(e => shopDateKey(e.date) === todayStr);
   const todayExpensesTotal = todayExpensesList.reduce((sum, e) => sum + e.amount, 0);
 
-  const todayDrawingsList = ownerDrawings.filter(d => d.date.startsWith(todayStr));
+  const todayDrawingsList = ownerDrawings.filter(d => shopDateKey(d.date) === todayStr);
   const todayDrawingsTotal = todayDrawingsList.reduce((sum, d) => sum + d.cost_value, 0);
 
   const todayNetProfit = todayGrossProfit - todayExpensesTotal - todayDrawingsTotal;
@@ -148,7 +149,7 @@ export const CalendarScreen: React.FC = () => {
   // Active day sales
   const activeDayData = salesByDay.get(selectedDayStr);
   const activeDaySales = sales
-    .filter(s => s.sold_at.startsWith(selectedDayStr))
+    .filter(s => shopDateKey(s.sold_at) === selectedDayStr)
     .sort((a, b) => new Date(b.sold_at).getTime() - new Date(a.sold_at).getTime());
 
   const handlePrevMonth = () => {
@@ -584,7 +585,7 @@ export const CalendarScreen: React.FC = () => {
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
               const dayData = salesByDay.get(dateStr);
               const isSelected = selectedDayStr === dateStr;
-              const isToday = dateStr === new Date().toISOString().split('T')[0];
+              const isToday = dateStr === shopDateKey();
               const totalAmt = dayData ? dayData.total : 0;
 
               // Color coding logic
